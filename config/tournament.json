@@ -1,1 +1,486 @@
-ggwp
+{
+  "groups": [
+    {
+      "id": "A",
+      "teams": ["MEX", "RSA", "KOR", "CZE"]
+    },
+    {
+      "id": "B",
+      "teams": ["CAN", "BIH", "QAT", "SUI"]
+    }, 
+    {
+      "id": "C",
+      "teams": ["BRA", "MAR", "HAI", "SCO"]
+    },
+    {
+      "id": "D",
+      "teams": ["USA", "PAR", "AUS", "TUR"]
+    },
+    {
+      "id": "E",
+      "teams": ["GER", "CUR", "CIV", "ECU"]
+    },
+    {
+      "id": "F",
+      "teams": ["NED", "JPN", "SWE", "TUN"]
+    },
+    {
+      "id": "G",
+      "teams": ["BEL", "EGY", "IRN", "NZL"]
+    },
+    {
+      "id": "H",
+      "teams": ["ESP", "CPV", "KSA", "URU"]
+    }, 
+    {
+      "id": "I",
+      "teams": ["FRA", "SEN", "IRQ", "NOR"]
+    },
+    {
+      "id": "J",
+      "teams": ["ARG", "ALG", "AUT", "JOR"]
+    },
+    {
+      "id": "K",
+      "teams": ["POR", "COD", "UZB", "COL"]
+    },
+    {
+      "id": "L",
+      "teams": ["ENG", "CRO", "GHA", "PAN"]
+    }
+  ],
+  "matches": [
+    {
+      "id": "A1",
+      "group_id": "A",
+      "home_team": "MEX",
+      "away_team": "RSA"
+    },
+    {
+      "id": "A2",
+      "group_id": "A",
+      "home_team": "KOR",
+      "away_team": "CZE"
+    }, 
+    {
+      "id": "B1",
+      "group_id": "B",
+      "home_team": "CAN",
+      "away_team": "BIH"
+    },
+    {
+      "id": "D1",
+      "group_id": "D",
+      "home_team": "USA",
+      "away_team": "PAR"
+    },
+    {
+      "id": "B2",
+      "group_id": "B",
+      "home_team": "QAT",
+      "away_team": "SUI"
+    },
+    {
+      "id": "C1",
+      "group_id": "C",
+      "home_team": "BRA",
+      "away_team": "MOR"
+    },
+    {
+      "id": "C2",
+      "group_id": "C",
+      "home_team": "HAI",
+      "away_team": "SCO"
+    },
+    {
+      "id": "D2",
+      "group_id": "D",
+      "home_team": "AUS",
+      "away_team": "TUR"
+    },
+    {
+      "id": "E1",
+      "group_id": "E",
+      "home_team": "GER",
+      "away_team": "CUR"
+    },
+    {
+      "id": "F1",
+      "group_id": "F",
+      "home_team": "NED",
+      "away_team": "JPN"
+    },
+    {
+      "id": "E2",
+      "group_id": "E",
+      "home_team": "CIV",
+      "away_team": "ECU"
+    },
+    {
+      "id": "F2",
+      "group_id": "F",
+      "home_team": "SWE",
+      "away_team": "TUN"
+    },
+    {
+      "id": "H1",
+      "group_id": "H",
+      "home_team": "ESP",
+      "away_team": "CPV"
+    },
+    {
+      "id": "G1",
+      "group_id": "G",
+      "home_team": "BEL",
+      "away_team": "EGY"
+    },
+    {
+      "id": "H2",
+      "group_id": "H",
+      "home_team": "KSA",
+      "away_team": "URU"
+    },
+    {
+      "id": "G2",
+      "group_id": "G",
+      "home_team": "IRN",
+      "away_team": "NZL"
+    },
+    {
+      "id": "I1",
+      "group_id": "I",
+      "home_team": "FRA",
+      "away_team": "SEN"
+    },
+    {
+      "id": "I2",
+      "group_id": "I",
+      "home_team": "IRQ",
+      "away_team": "NOR"
+    },
+    {
+      "id": "J1",
+      "group_id": "J",
+      "home_team": "ARG",
+      "away_team": "ALG"
+    },
+    {
+      "id": "J2",
+      "group_id": "J",
+      "home_team": "AUT",
+      "away_team": "JOR"
+    },
+    {
+      "id": "K1",
+      "group_id": "K",
+      "home_team": "POR",
+      "away_team": "COD"
+    },
+    {
+      "id": "L1",
+      "group_id": "L",
+      "home_team": "ENG",
+      "away_team": "CRO"
+    },
+    {
+      "id": "L2",
+      "group_id": "L",
+      "home_team": "GHA",
+      "away_team": "PAN"
+    },
+    {
+      "id": "K2",
+      "group_id": "K",
+      "home_team": "UZB",
+      "away_team": "COL"
+    },
+    {
+      "id": "A3",
+      "group_id": "A",
+      "home_team": "CZE",
+      "away_team": "RSA"
+    },
+    {
+      "id": "B3",
+      "group_id": "B",
+      "home_team": "SUI",
+      "away_team": "BIH"
+    },
+    {
+      "id": "B4",
+      "group_id": "B",
+      "home_team": "CAN",
+      "away_team": "QAT"
+    },
+    {
+      "id": "A4",
+      "group_id": "A",
+      "home_team": "MEX",
+      "away_team": "KOR"
+    },
+    {
+      "id": "D3",
+      "group_id": "D",
+      "home_team": "USA",
+      "away_team": "AUS"
+    },
+    {
+      "id": "C3",
+      "group_id": "C",
+      "home_team": "SCO",
+      "away_team": "MAR"
+    },
+    {
+      "id": "C4",
+      "group_id": "C",
+      "home_team": "BRA",
+      "away_team": "HAI"
+    },
+    {
+      "id": "D4",
+      "group_id": "D",
+      "home_team": "TUR",
+      "away_team": "PAR"
+    },
+    {
+      "id": "F3",
+      "group_id": "F",
+      "home_team": "NED",
+      "away_team": "SWE"
+    },
+    {
+      "id": "E3",
+      "group_id": "E",
+      "home_team": "GER",
+      "away_team": "CIV"
+    },
+    {
+      "id": "E4",
+      "group_id": "E",
+      "home_team": "ECU",
+      "away_team": "CUR"
+    },
+    {
+      "id": "F4",
+      "group_id": "F",
+      "home_team": "TUN",
+      "away_team": "JPN"
+    },
+    {
+      "id": "H3",
+      "group_id": "H",
+      "home_team": "ESP",
+      "away_team": "KSA"
+    },
+    {
+      "id": "G3",
+      "group_id": "G",
+      "home_team": "BEL",
+      "away_team": "IRN"
+    },
+    {
+      "id": "H4",
+      "group_id": "H",
+      "home_team": "URU",
+      "away_team": "CPV"
+    },
+    {
+      "id": "G4",
+      "group_id": "G",
+      "home_team": "NZL",
+      "away_team": "EGY"
+    },
+    {
+      "id": "J3",
+      "group_id": "J",
+      "home_team": "ARG",
+      "away_team": "AUS"
+    },
+    {
+      "id": "I3",
+      "group_id": "I",
+      "home_team": "FRA",
+      "away_team": "IRQ"
+    },
+    {
+      "id": "I4",
+      "group_id": "I",
+      "home_team": "NOR",
+      "away_team": "SEN"
+    },
+    {
+      "id": "J4",
+      "group_id": "J",
+      "home_team": "JOR",
+      "away_team": "ALG"
+    },
+    {
+      "id": "K3",
+      "group_id": "K",
+      "home_team": "POR",
+      "away_team": "UZB"
+    },
+    {
+      "id": "L3",
+      "group_id": "L",
+      "home_team": "ENG",
+      "away_team": "GHA"
+    },
+    {
+      "id": "L4",
+      "group_id": "L",
+      "home_team": "PAN",
+      "away_team": "CRO"
+    },
+    {
+      "id": "K4",
+      "group_id": "K",
+      "home_team": "COL",
+      "away_team": "COD"
+    },
+    {
+      "id": "B5",
+      "group_id": "B",
+      "home_team": "SUI",
+      "away_team": "CAN"
+    },
+    {
+      "id": "B6",
+      "group_id": "B",
+      "home_team": "BIH",
+      "away_team": "QAT"
+    },
+    {
+      "id": "C5",
+      "group_id": "C",
+      "home_team": "MAR",
+      "away_team": "HAI"
+    },
+    {
+      "id": "C6",
+      "group_id": "C",
+      "home_team": "SCO",
+      "away_team": "BRA"
+    },
+    {
+      "id": "A5",
+      "group_id": "A",
+      "home_team": "KSA",
+      "away_team": "KOR"
+    },
+    {
+      "id": "A6",
+      "group_id": "A",
+      "home_team": "CZE",
+      "away_team": "MEX"
+    },
+    {
+      "id": "E5",
+      "group_id": "E",
+      "home_team": "CUR",
+      "away_team": "CIV"
+    },
+    {
+      "id": "E6",
+      "group_id": "E",
+      "home_team": "ECU",
+      "away_team": "GER"
+    },
+    {
+      "id": "F5",
+      "group_id": "F",
+      "home_team": "TUN",
+      "away_team": "NED"
+    },
+    {
+      "id": "F6",
+      "group_id": "F",
+      "home_team": "JPN",
+      "away_team": "SWE"
+    },
+    {
+      "id": "D5",
+      "group_id": "D",
+      "home_team": "TUR",
+      "away_team": "USA"
+    },
+    {
+      "id": "D6",
+      "group_id": "D",
+      "home_team": "PAR",
+      "away_team": "AUS"
+    },
+    {
+      "id": "I5",
+      "group_id": "I",
+      "home_team": "NOR",
+      "away_team": "FRA"
+    },
+    {
+      "id": "I6",
+      "group_id": "I",
+      "home_team": "SEN",
+      "away_team": "IRQ"
+    },
+    {
+      "id": "H5",
+      "group_id": "H",
+      "home_team": "CPV",
+      "away_team": "KSA"
+    },
+    {
+      "id": "H6",
+      "group_id": "H",
+      "home_team": "URU",
+      "away_team": "ESP"
+    },
+    {
+      "id": "G5",
+      "group_id": "G",
+      "home_team": "NZL",
+      "away_team": "BEL"
+    },
+    {
+      "id": "G6",
+      "group_id": "G",
+      "home_team": "EGY",
+      "away_team": "IRN"
+    },
+    {
+      "id": "L5",
+      "group_id": "L",
+      "home_team": "PAN",
+      "away_team": "ENG"
+    },
+    {
+      "id": "L6",
+      "group_id": "L",
+      "home_team": "CRO",
+      "away_team": "GHA"
+    },
+    {
+      "id": "K5",
+      "group_id": "K",
+      "home_team": "COL",
+      "away_team": "POR"
+    },
+    {
+      "id": "K6",
+      "group_id": "K",
+      "home_team": "COD",
+      "away_team": "UZB"
+    },
+    {
+      "id": "J5",
+      "group_id": "J",
+      "home_team": "ALG",
+      "away_team": "AUS"
+    },
+    {
+      "id": "J6",
+      "group_id": "J",
+      "home_team": "JOR",
+      "away_team": "ARG"
+    }
+  ]
+}
