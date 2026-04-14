@@ -25,7 +25,7 @@ def print_leaderboard(leaderboard: list) -> None:
 def main() -> None:
     service = PickemService(
         tournament_path=Path("config/tournament.json"),
-        truth_path=Path("config/truth/woshisim.json"),
+        truth_path=Path("config/truthData/woshisim.json"),
         entries_dir=Path("config/entries"),
     )
 
