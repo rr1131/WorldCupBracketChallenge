@@ -1,10 +1,8 @@
-"use client";
-
-import { useMemo, useState } from "react";
-
 export default function NewEntryPage() {
-  const [entryName, setEntryName] = useState("");
-  const [predictions, setPredictions] = useState({});
-
-  return <div>Create entry</div>;
+  return (
+    <main style={{ padding: 24 }}>
+      <h1>Create World Cup Entry</h1>
+      <p>Group-stage entry builder coming next.</p>
+    </main>
+  );
 }
