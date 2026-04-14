@@ -77,6 +77,20 @@ class GroupStanding:
 
 
 @dataclass(frozen=True)
+class MatchScoreBreakdown:
+    match_id: str
+    group_id: str
+    home_team: str
+    away_team: str
+    predicted_home_score: int
+    predicted_away_score: int
+    actual_home_score: int
+    actual_away_score: int
+    points: int
+    reason: str
+
+
+@dataclass(frozen=True)
 class GroupScoreBreakdown:
     group_id: str
     exact_position_points: int
@@ -88,7 +102,10 @@ class GroupScoreBreakdown:
 @dataclass(frozen=True)
 class ScoredEntry:
     entry_name: str
+    match_scores: List[MatchScoreBreakdown]
     group_scores: List[GroupScoreBreakdown]
+    match_points: int
+    standing_points: int
     total_points: int
     exact_order_count: int
     top_two_bonus_count: int

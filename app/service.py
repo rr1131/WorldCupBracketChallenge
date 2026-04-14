@@ -48,7 +48,9 @@ class PickemService:
             predicted_standings_by_entry[entry_name] = predicted_standings
 
             scored = score_entry(
-                entry_name=entry_name,
+                tournament=tournament,
+                entry=entry,
+                truth_results=truth.results,
                 predicted_standings=predicted_standings,
                 actual_standings=actual_standings,
             )
