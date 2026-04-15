@@ -11,7 +11,7 @@ from .validator import (
     validate_tournament_config,
     validate_truth_config,
 )
-#yoYo
+
 def score_single_entry(entry: EntryConfig) -> dict:
     project_root = Path(__file__).resolve().parent.parent
 
