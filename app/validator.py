@@ -58,3 +58,28 @@ def validate_entry_config(tournament: TournamentConfig, entry: EntryConfig) -> N
     for match_id, prediction in entry.predictions.items():
         if prediction.home_score < 0 or prediction.away_score < 0:
             raise ValidationError(f"Negative predicted score in entry {entry.entry_name} for {match_id}")
+        
+def validate_knockout_picks(
+    entry: EntryConfig,
+    predicted_bracket: dict[str, list[KnockoutMatch]],
+) -> None:
+    if not entry.knockout_picks:
+        return
+
+    match_lookup = {}
+    for matches in predicted_bracket.values():
+        for match in matches:
+            match_lookup[match.slot_id] = match
+
+    for pick in entry.knockout_picks:
+        if pick.slot_id not in match_lookup:
+            raise ValidationError(f"Unknown knockout slot: {pick.slot_id}")
+
+        match = match_lookup[pick.slot_id]
+        valid_teams = {match.home_team, match.away_team}
+
+        if pick.winner_team not in valid_teams:
+            raise ValidationError(
+                f"Invalid knockout pick for {pick.slot_id}: {pick.winner_team} "
+                f"not in matchup {match.home_team} vs {match.away_team}"
+            )

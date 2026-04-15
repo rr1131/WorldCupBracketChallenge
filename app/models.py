@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -33,12 +33,21 @@ class TournamentConfig:
 class TruthConfig:
     results: Dict[str, MatchResult]
     group_overrides: Dict[str, List[str]]
+    knockout_results: Dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class KnockoutPick:
+    round_name: str
+    slot_id: str
+    winner_team: str
 
 
 @dataclass(frozen=True)
 class EntryConfig:
     entry_name: str
     predictions: Dict[str, MatchResult]
+    knockout_picks: List[KnockoutPick] | None = None
 
 
 @dataclass
@@ -100,12 +109,32 @@ class GroupScoreBreakdown:
 
 
 @dataclass(frozen=True)
+class KnockoutMatch:
+    round_name: str
+    slot_id: str
+    home_team: Optional[str]
+    away_team: Optional[str]
+
+
+@dataclass(frozen=True)
+class KnockoutScoreBreakdown:
+    round_name: str
+    slot_id: str
+    predicted_winner: Optional[str]
+    actual_winner: Optional[str]
+    points: int
+    reason: str
+
+
+@dataclass(frozen=True)
 class ScoredEntry:
     entry_name: str
     match_scores: List[MatchScoreBreakdown]
     group_scores: List[GroupScoreBreakdown]
+    knockout_scores: List[KnockoutScoreBreakdown]
     match_points: int
     standing_points: int
+    knockout_points: int
     total_points: int
     exact_order_count: int
     top_two_bonus_count: int

@@ -150,7 +150,7 @@ def score_all_groups(
     return group_scores
 
 
-def score_entry(
+def score_group_stage_entry(
     tournament: TournamentConfig,
     entry: EntryConfig,
     truth_results: Dict[str, MatchResult],
