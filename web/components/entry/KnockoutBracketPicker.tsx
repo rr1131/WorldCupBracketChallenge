@@ -72,12 +72,18 @@ const RIGHT_LAYOUT: SlotPlacement[][] = [
   ],
 ];
 
+const DESKTOP_BRACKET_HEIGHT_CLASS = "h-[76vh] min-h-[680px]";
+
 function flattenBracket(baseBracket: KnockoutBracket) {
   return Object.fromEntries(
     Object.values(baseBracket)
       .flatMap((matches) => matches ?? [])
       .map((match) => [match.slot_id, match])
   );
+}
+
+function getPlaceholderLabel(slotId: string) {
+  return `W ${slotId}`;
 }
 
 function TeamOption({
@@ -90,6 +96,7 @@ function TeamOption({
   slotId: string;
   side: "left" | "right";
   team: string | null;
+  placeholderSlotId?: string;
   selectedWinner?: string;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
@@ -98,8 +105,13 @@ function TeamOption({
 
   if (!team) {
     return (
-      <div className="flex h-8 items-center rounded-xl border border-white/8 bg-white/6 px-2 text-[11px] uppercase tracking-[0.12em] text-cyan-50/35">
-        Awaiting prior winner
+      <div
+        className={[
+          "flex h-7 items-center rounded-lg border border-white/8 bg-white/6 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-50/40",
+          side === "left" ? "justify-start text-left" : "justify-end text-right",
+        ].join(" ")}
+      >
+        {placeholderSlotId ? getPlaceholderLabel(placeholderSlotId) : "TBD"}
       </div>
     );
   }
@@ -110,36 +122,34 @@ function TeamOption({
       onClick={() => onSelectWinner(slotId, team)}
       disabled={isDisabled}
       className={[
-        "flex h-8 items-center gap-2 rounded-xl border px-2 transition",
+        "flex h-7 items-center gap-1.5 rounded-lg border px-2 transition",
         side === "left" ? "justify-start text-left" : "justify-end text-right",
         isSelected
           ? "border-amber-300 bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950 shadow-[0_10px_25px_rgba(245,158,11,0.28)]"
           : "border-white/10 bg-[#0e3143] text-white hover:border-cyan-300/35 hover:bg-[#143c51]",
       ].join(" ")}
     >
-      {side === "left" && <FlagIcon teamCode={team} className="h-4 w-6 rounded-sm" />}
-      <span className="truncate text-[11px] font-semibold uppercase tracking-[0.12em]">
+      {side === "left" && <FlagIcon teamCode={team} className="h-3.5 w-5 rounded-sm" />}
+      <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em]">
         {getTeamMetadata(team).code}
       </span>
-      {side === "right" && <FlagIcon teamCode={team} className="h-4 w-6 rounded-sm" />}
+      {side === "right" && <FlagIcon teamCode={team} className="h-3.5 w-5 rounded-sm" />}
     </button>
   );
 }
 
 function MatchNode({
   slotId,
-  row,
-  span,
   side,
   teams,
+  sourceSlots,
   selectedWinner,
   onSelectWinner,
 }: {
   slotId: string;
-  row: number;
-  span: number;
   side: "left" | "right" | "center";
   teams: [string | null, string | null];
+  sourceSlots?: [string | null, string | null];
   selectedWinner?: string;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
@@ -151,13 +161,10 @@ function MatchNode({
         : "";
 
   return (
-    <div
-      className="relative"
-      style={{ gridRow: `${row} / span ${span}` }}
-    >
+    <div className="relative h-full">
       <div
         className={[
-          "relative flex h-full min-h-[66px] flex-col justify-center rounded-[22px] border border-cyan-300/10 bg-[linear-gradient(180deg,#0a2535,#0f3143)] p-2 shadow-[0_14px_34px_rgba(2,6,23,0.42)]",
+          "relative flex h-full min-h-[76px] flex-col justify-center rounded-[22px] border border-cyan-300/10 bg-[linear-gradient(180deg,#0a2535,#0f3143)] p-2 shadow-[0_14px_34px_rgba(2,6,23,0.42)]",
           connectorClass,
         ].join(" ")}
       >
@@ -170,6 +177,7 @@ function MatchNode({
             slotId={slotId}
             side={side === "right" ? "right" : "left"}
             team={teams[0]}
+            placeholderSlotId={sourceSlots?.[0] ?? null}
             selectedWinner={selectedWinner}
             onSelectWinner={onSelectWinner}
           />
@@ -177,6 +185,7 @@ function MatchNode({
             slotId={slotId}
             side={side === "right" ? "right" : "left"}
             team={teams[1]}
+            placeholderSlotId={sourceSlots?.[1] ?? null}
             selectedWinner={selectedWinner}
             onSelectWinner={onSelectWinner}
           />
@@ -189,19 +198,23 @@ function MatchNode({
 function BracketSide({
   layout,
   labels,
+  side,
   bracketLookup,
+  sourceLookup,
   picksBySlot,
   onSelectWinner,
 }: {
   layout: SlotPlacement[][];
   labels: string[];
+  side: "left" | "right";
   bracketLookup: Record<string, { home_team: string | null; away_team: string | null }>;
+  sourceLookup: Record<string, [string | null, string | null]>;
   picksBySlot: KnockoutPickLookup;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-[1.45fr_1.15fr_0.95fr_0.8fr] gap-3">
+      <div className="grid grid-cols-[1.55fr_1.15fr_0.92fr_0.76fr] gap-3">
         {labels.map((label) => (
           <div
             key={label}
@@ -212,18 +225,28 @@ function BracketSide({
         ))}
       </div>
 
-      <div className="grid h-[70vh] min-h-[620px] grid-cols-[1.45fr_1.15fr_0.95fr_0.8fr] grid-rows-8 gap-x-3 gap-y-2">
+      <div
+        className={[
+          "grid grid-cols-[1.55fr_1.15fr_0.92fr_0.76fr] grid-rows-8 gap-x-3 gap-y-2",
+          DESKTOP_BRACKET_HEIGHT_CLASS,
+        ].join(" ")}
+      >
         {layout.flatMap((column, columnIndex) =>
           column.map((placement) => {
             const match = bracketLookup[placement.slotId];
             return (
-              <div key={placement.slotId} style={{ gridColumn: columnIndex + 1 }}>
+              <div
+                key={placement.slotId}
+                style={{
+                  gridColumn: columnIndex + 1,
+                  gridRow: `${placement.row} / span ${placement.span}`,
+                }}
+              >
                 <MatchNode
                   slotId={placement.slotId}
-                  row={placement.row}
-                  span={placement.span}
-                  side={labels[0] === "SF" ? "right" : "left"}
+                  side={side}
                   teams={[match?.home_team ?? null, match?.away_team ?? null]}
+                  sourceSlots={sourceLookup[placement.slotId]}
                   selectedWinner={picksBySlot[placement.slotId]}
                   onSelectWinner={onSelectWinner}
                 />
@@ -249,6 +272,42 @@ export default function KnockoutBracketPicker({
   const bracketLookup = useMemo(() => flattenBracket(derivedBracket), [derivedBracket]);
   const finalMatch = bracketLookup.M104;
   const champion = picksBySlot.M104 ?? null;
+  const sourceLookup = useMemo(
+    () => ({
+      M73: [null, null],
+      M74: [null, null],
+      M75: [null, null],
+      M76: [null, null],
+      M77: [null, null],
+      M78: [null, null],
+      M79: [null, null],
+      M80: [null, null],
+      M81: [null, null],
+      M82: [null, null],
+      M83: [null, null],
+      M84: [null, null],
+      M85: [null, null],
+      M86: [null, null],
+      M87: [null, null],
+      M88: [null, null],
+      M89: ["M73", "M75"],
+      M90: ["M74", "M77"],
+      M91: ["M76", "M78"],
+      M92: ["M79", "M80"],
+      M93: ["M83", "M84"],
+      M94: ["M81", "M82"],
+      M95: ["M86", "M88"],
+      M96: ["M85", "M87"],
+      M97: ["M89", "M90"],
+      M98: ["M93", "M94"],
+      M99: ["M91", "M92"],
+      M100: ["M95", "M96"],
+      M101: ["M97", "M98"],
+      M102: ["M99", "M100"],
+      M104: ["M101", "M102"],
+    }),
+    []
+  );
 
   const completion = useMemo(() => {
     const total = Object.keys(bracketLookup).length;
@@ -277,16 +336,18 @@ export default function KnockoutBracketPicker({
         </div>
       </div>
 
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_170px_minmax(0,1fr)] xl:items-start xl:gap-4">
+      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_190px_minmax(0,1fr)] xl:items-start xl:gap-5">
         <BracketSide
           layout={LEFT_LAYOUT}
           labels={LEFT_STAGE_LABELS}
+          side="left"
           bracketLookup={bracketLookup}
+          sourceLookup={sourceLookup}
           picksBySlot={picksBySlot}
           onSelectWinner={onSelectWinner}
         />
 
-        <div className="flex h-[70vh] min-h-[620px] flex-col justify-center">
+        <div className={["flex flex-col justify-center", DESKTOP_BRACKET_HEIGHT_CLASS].join(" ")}>
           <div className="space-y-4">
             <div className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/55">
               Final
@@ -294,10 +355,9 @@ export default function KnockoutBracketPicker({
 
             <MatchNode
               slotId="M104"
-              row={1}
-              span={1}
               side="center"
               teams={[finalMatch?.home_team ?? null, finalMatch?.away_team ?? null]}
+              sourceSlots={sourceLookup.M104}
               selectedWinner={picksBySlot.M104}
               onSelectWinner={onSelectWinner}
             />
@@ -326,7 +386,9 @@ export default function KnockoutBracketPicker({
         <BracketSide
           layout={RIGHT_LAYOUT}
           labels={RIGHT_STAGE_LABELS}
+          side="right"
           bracketLookup={bracketLookup}
+          sourceLookup={sourceLookup}
           picksBySlot={picksBySlot}
           onSelectWinner={onSelectWinner}
         />
@@ -348,10 +410,9 @@ export default function KnockoutBracketPicker({
                 <MatchNode
                   key={match.slot_id}
                   slotId={match.slot_id}
-                  row={1}
-                  span={1}
                   side="center"
                   teams={[match.home_team, match.away_team]}
+                  sourceSlots={sourceLookup[match.slot_id]}
                   selectedWinner={picksBySlot[match.slot_id]}
                   onSelectWinner={onSelectWinner}
                 />
