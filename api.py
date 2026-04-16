@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 
-from app.models import EntryConfig, MatchResult
+from app.models import EntryConfig, KnockoutPick, MatchResult
 from app.service import score_single_entry
 
 
@@ -13,9 +13,16 @@ class PredictionIn(BaseModel):
     away_score: int
 
 
+class KnockoutPickIn(BaseModel):
+    round_name: str
+    slot_id: str
+    winner_team: str
+
+
 class EntryIn(BaseModel):
     entry_name: str
     predictions: List[PredictionIn]
+    knockout_picks: List[KnockoutPickIn] | None = None
 
 
 app = FastAPI()
@@ -44,6 +51,16 @@ def score_entry_endpoint(entry_in: EntryIn):
             )
             for p in entry_in.predictions
         },
+        knockout_picks=[
+            KnockoutPick(
+                round_name=pick.round_name,
+                slot_id=pick.slot_id,
+                winner_team=pick.winner_team,
+            )
+            for pick in entry_in.knockout_picks
+        ]
+        if entry_in.knockout_picks
+        else None,
     )
 
     return score_single_entry(entry)

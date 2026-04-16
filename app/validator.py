@@ -1,4 +1,4 @@
-from .models import TournamentConfig, TruthConfig, EntryConfig
+from .models import TournamentConfig, TruthConfig, EntryConfig, KnockoutMatch
 
 
 class ValidationError(Exception):

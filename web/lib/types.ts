@@ -21,7 +21,86 @@ export type MatchPrediction = {
   away_score: number | "";
 };
 
+export type KnockoutRoundName = "R32" | "R16" | "QF" | "SF" | "FINAL";
+
+export type KnockoutPick = {
+  round_name: KnockoutRoundName;
+  slot_id: string;
+  winner_team: string;
+};
+
+export type GroupStandingRow = {
+  position: number;
+  team: string;
+  group_id: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+  goal_difference: number;
+  points: number;
+};
+
+export type GroupScoreBreakdown = {
+  group_id: string;
+  exact_position_points: number;
+  top_two_bonus: number;
+  exact_order_bonus: number;
+  total_points: number;
+};
+
+export type MatchScoreBreakdown = {
+  match_id: string;
+  group_id: string;
+  home_team: string;
+  away_team: string;
+  predicted_home_score: number;
+  predicted_away_score: number;
+  actual_home_score: number;
+  actual_away_score: number;
+  points: number;
+  reason: string;
+};
+
+export type KnockoutMatch = {
+  round_name: KnockoutRoundName;
+  slot_id: string;
+  home_team: string | null;
+  away_team: string | null;
+};
+
+export type KnockoutBracket = Partial<Record<KnockoutRoundName, KnockoutMatch[]>>;
+
+export type KnockoutScoreBreakdown = {
+  round_name: KnockoutRoundName;
+  slot_id: string;
+  predicted_winner: string | null;
+  actual_winner: string | null;
+  points: number;
+  reason: string;
+};
+
 export type EntryPayload = {
   entry_name: string;
   predictions: MatchPrediction[];
+  knockout_picks?: KnockoutPick[];
+};
+
+export type SimulatedScoreResponse = {
+  entry_name: string;
+  match_points: number;
+  standing_points: number;
+  knockout_points: number;
+  total_points: number;
+  exact_order_count: number;
+  top_two_bonus_count: number;
+  group_scores: GroupScoreBreakdown[];
+  match_scores: MatchScoreBreakdown[];
+  knockout_scores: KnockoutScoreBreakdown[];
+  predicted_standings: Record<string, GroupStandingRow[]>;
+  actual_standings: Record<string, GroupStandingRow[]>;
+  predicted_bracket: KnockoutBracket;
+  actual_bracket: KnockoutBracket;
 };

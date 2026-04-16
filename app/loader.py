@@ -5,6 +5,7 @@ from typing import Dict
 from .models import (
     EntryConfig,
     Group,
+    KnockoutPick,
     Match,
     MatchResult,
     TournamentConfig,
@@ -52,7 +53,8 @@ def load_truth_config(path: Path) -> TruthConfig:
 
     return TruthConfig(
         results=results,
-        group_overrides=raw.get("group_overrides", {})
+        group_overrides=raw.get("group_overrides", {}),
+        knockout_results=raw.get("knockout_results"),
     )
 
 
@@ -71,6 +73,15 @@ def load_entry_config(path: Path) -> EntryConfig:
     return EntryConfig(
         entry_name=raw["entry_name"],
         predictions=predictions,
+        knockout_picks=[
+            KnockoutPick(
+                round_name=pick["round_name"],
+                slot_id=pick["slot_id"],
+                winner_team=pick["winner_team"],
+            )
+            for pick in raw.get("knockout_picks", [])
+        ]
+        or None,
     )
 
 
