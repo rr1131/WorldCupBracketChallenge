@@ -33,6 +33,7 @@ class TournamentConfig:
 class TruthConfig:
     results: Dict[str, MatchResult]
     group_overrides: Dict[str, List[str]]
+    advancing_third_place_groups: List[str] | None = None
     knockout_results: Dict[str, str] | None = None
 
 
@@ -47,6 +48,7 @@ class KnockoutPick:
 class EntryConfig:
     entry_name: str
     predictions: Dict[str, MatchResult]
+    advancing_third_place_groups: List[str] | None = None
     knockout_picks: List[KnockoutPick] | None = None
 
 
@@ -118,10 +120,8 @@ class KnockoutMatch:
 
 @dataclass(frozen=True)
 class KnockoutScoreBreakdown:
-    round_name: str
-    slot_id: str
-    predicted_winner: Optional[str]
-    actual_winner: Optional[str]
+    stage_name: str
+    team: str
     points: int
     reason: str
 

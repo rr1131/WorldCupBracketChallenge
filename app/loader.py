@@ -51,9 +51,15 @@ def load_truth_config(path: Path) -> TruthConfig:
         for r in raw["results"]
     }
 
+    advancing_third_place_groups = raw.get("advancing_third_place_groups")
+    if advancing_third_place_groups is None:
+        tiebreak_overrides = raw.get("tiebreak_overrides", {})
+        advancing_third_place_groups = tiebreak_overrides.get("advancing_third_place_teams")
+
     return TruthConfig(
         results=results,
         group_overrides=raw.get("group_overrides", {}),
+        advancing_third_place_groups=advancing_third_place_groups,
         knockout_results=raw.get("knockout_results"),
     )
 
@@ -73,6 +79,7 @@ def load_entry_config(path: Path) -> EntryConfig:
     return EntryConfig(
         entry_name=raw["entry_name"],
         predictions=predictions,
+        advancing_third_place_groups=raw.get("advancing_third_place_groups"),
         knockout_picks=[
             KnockoutPick(
                 round_name=pick["round_name"],

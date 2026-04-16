@@ -74,10 +74,8 @@ export type KnockoutMatch = {
 export type KnockoutBracket = Partial<Record<KnockoutRoundName, KnockoutMatch[]>>;
 
 export type KnockoutScoreBreakdown = {
-  round_name: KnockoutRoundName;
-  slot_id: string;
-  predicted_winner: string | null;
-  actual_winner: string | null;
+  stage_name: KnockoutRoundName | "CHAMPION";
+  team: string;
   points: number;
   reason: string;
 };
@@ -85,7 +83,15 @@ export type KnockoutScoreBreakdown = {
 export type EntryPayload = {
   entry_name: string;
   predictions: MatchPrediction[];
+  advancing_third_place_groups?: string[];
   knockout_picks?: KnockoutPick[];
+};
+
+export type KnockoutBracketPreviewResponse = {
+  entry_name: string;
+  predicted_standings: Record<string, GroupStandingRow[]>;
+  predicted_bracket: KnockoutBracket;
+  advancing_third_place_groups?: string[] | null;
 };
 
 export type SimulatedScoreResponse = {
@@ -103,4 +109,5 @@ export type SimulatedScoreResponse = {
   actual_standings: Record<string, GroupStandingRow[]>;
   predicted_bracket: KnockoutBracket;
   actual_bracket: KnockoutBracket;
+  knockout_warning?: string | null;
 };

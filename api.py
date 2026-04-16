@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 
 from app.models import EntryConfig, KnockoutPick, MatchResult
-from app.service import score_single_entry
+from app.knockout import ThirdPlaceAdvancementTiebreakRequired
+from app.service import generate_knockout_bracket_preview, score_single_entry
+from app.validator import ValidationError
 
 
 class PredictionIn(BaseModel):
@@ -22,6 +24,7 @@ class KnockoutPickIn(BaseModel):
 class EntryIn(BaseModel):
     entry_name: str
     predictions: List[PredictionIn]
+    advancing_third_place_groups: List[str] | None = None
     knockout_picks: List[KnockoutPickIn] | None = None
 
 
@@ -41,6 +44,47 @@ app.add_middleware(
 
 @app.post("/api/score-entry")
 def score_entry_endpoint(entry_in: EntryIn):
+    entry = parse_entry(entry_in)
+
+    try:
+        return score_single_entry(entry)
+    except ValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except ThirdPlaceAdvancementTiebreakRequired as error:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "manual_third_place_tiebreak_required",
+                "message": str(error),
+                "locked_group_ids": error.locked_group_ids,
+                "candidate_group_ids": error.candidate_group_ids,
+                "slots_remaining": error.slots_remaining,
+            },
+        ) from error
+
+
+@app.post("/api/generate-knockout-bracket")
+def generate_knockout_bracket_endpoint(entry_in: EntryIn):
+    entry = parse_entry(entry_in)
+
+    try:
+        return generate_knockout_bracket_preview(entry)
+    except ValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except ThirdPlaceAdvancementTiebreakRequired as error:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "manual_third_place_tiebreak_required",
+                "message": str(error),
+                "locked_group_ids": error.locked_group_ids,
+                "candidate_group_ids": error.candidate_group_ids,
+                "slots_remaining": error.slots_remaining,
+            },
+        ) from error
+
+
+def parse_entry(entry_in: EntryIn) -> EntryConfig:
     entry = EntryConfig(
         entry_name=entry_in.entry_name,
         predictions={
@@ -51,6 +95,7 @@ def score_entry_endpoint(entry_in: EntryIn):
             )
             for p in entry_in.predictions
         },
+        advancing_third_place_groups=entry_in.advancing_third_place_groups,
         knockout_picks=[
             KnockoutPick(
                 round_name=pick.round_name,
@@ -63,4 +108,4 @@ def score_entry_endpoint(entry_in: EntryIn):
         else None,
     )
 
-    return score_single_entry(entry)
+    return entry

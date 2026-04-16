@@ -43,6 +43,13 @@ def validate_truth_config(tournament: TournamentConfig, truth: TruthConfig) -> N
         if expected != actual:
             raise ValidationError(f"Group override for {group_id} does not match group teams")
 
+    if truth.advancing_third_place_groups is not None:
+        validate_advancing_third_place_groups(
+            tournament=tournament,
+            advancing_third_place_groups=truth.advancing_third_place_groups,
+            label="truth",
+        )
+
 
 def validate_entry_config(tournament: TournamentConfig, entry: EntryConfig) -> None:
     expected_match_ids = set(tournament.matches.keys())
@@ -58,7 +65,39 @@ def validate_entry_config(tournament: TournamentConfig, entry: EntryConfig) -> N
     for match_id, prediction in entry.predictions.items():
         if prediction.home_score < 0 or prediction.away_score < 0:
             raise ValidationError(f"Negative predicted score in entry {entry.entry_name} for {match_id}")
-        
+
+    if entry.advancing_third_place_groups is not None:
+        validate_advancing_third_place_groups(
+            tournament=tournament,
+            advancing_third_place_groups=entry.advancing_third_place_groups,
+            label=f"entry {entry.entry_name}",
+        )
+
+
+def validate_advancing_third_place_groups(
+    tournament: TournamentConfig,
+    advancing_third_place_groups: list[str],
+    label: str,
+) -> None:
+    if len(advancing_third_place_groups) != 8:
+        raise ValidationError(
+            f"{label} must specify exactly 8 advancing third-place group ids."
+        )
+
+    if len(set(advancing_third_place_groups)) != 8:
+        raise ValidationError(
+            f"{label} advancing third-place group ids must be unique."
+        )
+
+    unknown_groups = sorted(
+        set(advancing_third_place_groups) - set(tournament.groups.keys())
+    )
+    if unknown_groups:
+        raise ValidationError(
+            f"{label} advancing third-place group ids contain unknown groups: {unknown_groups}"
+        )
+
+
 def validate_knockout_picks(
     entry: EntryConfig,
     predicted_bracket: dict[str, list[KnockoutMatch]],
@@ -66,20 +105,35 @@ def validate_knockout_picks(
     if not entry.knockout_picks:
         return
 
+    validate_knockout_winner_lookup(
+        winner_lookup={pick.slot_id: pick.winner_team for pick in entry.knockout_picks},
+        bracket=predicted_bracket,
+        label=f"entry {entry.entry_name}",
+    )
+
+
+def validate_knockout_winner_lookup(
+    winner_lookup: dict[str, str],
+    bracket: dict[str, list[KnockoutMatch]],
+    label: str,
+) -> None:
+    if not winner_lookup:
+        return
+
     match_lookup = {}
-    for matches in predicted_bracket.values():
+    for matches in bracket.values():
         for match in matches:
             match_lookup[match.slot_id] = match
 
-    for pick in entry.knockout_picks:
-        if pick.slot_id not in match_lookup:
-            raise ValidationError(f"Unknown knockout slot: {pick.slot_id}")
+    for slot_id, winner_team in winner_lookup.items():
+        if slot_id not in match_lookup:
+            raise ValidationError(f"Unknown knockout slot in {label}: {slot_id}")
 
-        match = match_lookup[pick.slot_id]
+        match = match_lookup[slot_id]
         valid_teams = {match.home_team, match.away_team}
 
-        if pick.winner_team not in valid_teams:
+        if winner_team not in valid_teams:
             raise ValidationError(
-                f"Invalid knockout pick for {pick.slot_id}: {pick.winner_team} "
+                f"Invalid knockout winner for {label} at {slot_id}: {winner_team} "
                 f"not in matchup {match.home_team} vs {match.away_team}"
             )

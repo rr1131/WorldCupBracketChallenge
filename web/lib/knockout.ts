@@ -13,6 +13,33 @@ export const KNOCKOUT_ROUNDS: KnockoutRoundName[] = [
   "FINAL",
 ];
 
+const KNOCKOUT_PAIRINGS: Record<
+  Exclude<KnockoutRoundName, "R32">,
+  Array<{ slotId: string; homeFrom: string; awayFrom: string }>
+> = {
+  R16: [
+    { slotId: "M89", homeFrom: "M73", awayFrom: "M75" },
+    { slotId: "M90", homeFrom: "M74", awayFrom: "M77" },
+    { slotId: "M91", homeFrom: "M76", awayFrom: "M78" },
+    { slotId: "M92", homeFrom: "M79", awayFrom: "M80" },
+    { slotId: "M93", homeFrom: "M83", awayFrom: "M84" },
+    { slotId: "M94", homeFrom: "M81", awayFrom: "M82" },
+    { slotId: "M95", homeFrom: "M86", awayFrom: "M88" },
+    { slotId: "M96", homeFrom: "M85", awayFrom: "M87" },
+  ],
+  QF: [
+    { slotId: "M97", homeFrom: "M89", awayFrom: "M90" },
+    { slotId: "M98", homeFrom: "M93", awayFrom: "M94" },
+    { slotId: "M99", homeFrom: "M91", awayFrom: "M92" },
+    { slotId: "M100", homeFrom: "M95", awayFrom: "M96" },
+  ],
+  SF: [
+    { slotId: "M101", homeFrom: "M97", awayFrom: "M98" },
+    { slotId: "M102", homeFrom: "M99", awayFrom: "M100" },
+  ],
+  FINAL: [{ slotId: "M104", homeFrom: "M101", awayFrom: "M102" }],
+};
+
 export type KnockoutPickLookup = Record<string, string>;
 
 function cloneRound(matches: KnockoutMatch[] | undefined) {
@@ -22,20 +49,32 @@ function cloneRound(matches: KnockoutMatch[] | undefined) {
 function deriveNextRound(
   roundName: KnockoutRoundName,
   templateMatches: KnockoutMatch[] | undefined,
-  priorRoundMatches: KnockoutMatch[],
+  priorRoundLookup: Record<string, KnockoutMatch>,
   picksBySlot: KnockoutPickLookup
 ) {
-  return (templateMatches ?? []).map((match, index) => {
-    const left = priorRoundMatches[index * 2];
-    const right = priorRoundMatches[index * 2 + 1];
+  const templateBySlot = Object.fromEntries(
+    (templateMatches ?? []).map((match) => [match.slot_id, match])
+  );
 
-    return {
-      ...match,
-      round_name: roundName,
-      home_team: left ? picksBySlot[left.slot_id] ?? null : null,
-      away_team: right ? picksBySlot[right.slot_id] ?? null : null,
-    };
-  });
+  return KNOCKOUT_PAIRINGS[roundName as Exclude<KnockoutRoundName, "R32">].map(
+    ({ slotId, homeFrom, awayFrom }) => {
+      const templateMatch = templateBySlot[slotId];
+      const left = priorRoundLookup[homeFrom];
+      const right = priorRoundLookup[awayFrom];
+
+      return {
+        ...(templateMatch ?? { round_name: roundName, slot_id: slotId }),
+        round_name: roundName,
+        slot_id: slotId,
+        home_team: left ? picksBySlot[left.slot_id] ?? null : null,
+        away_team: right ? picksBySlot[right.slot_id] ?? null : null,
+      };
+    }
+  );
+}
+
+function toLookup(matches: KnockoutMatch[] | undefined) {
+  return Object.fromEntries((matches ?? []).map((match) => [match.slot_id, match]));
 }
 
 export function deriveKnockoutBracket(
@@ -50,12 +89,12 @@ export function deriveKnockoutBracket(
   for (let index = 1; index < KNOCKOUT_ROUNDS.length; index += 1) {
     const roundName = KNOCKOUT_ROUNDS[index];
     const priorRoundName = KNOCKOUT_ROUNDS[index - 1];
-    const priorRoundMatches = derived[priorRoundName] ?? [];
+    const priorRoundLookup = toLookup(derived[priorRoundName]);
 
     derived[roundName] = deriveNextRound(
       roundName,
       baseBracket[roundName],
-      priorRoundMatches,
+      priorRoundLookup,
       picksBySlot
     );
   }
@@ -93,7 +132,7 @@ export function sanitizeKnockoutPickLookup(
     derived[nextRoundName] = deriveNextRound(
       nextRoundName,
       baseBracket[nextRoundName],
-      derived[roundName] ?? [],
+      toLookup(derived[roundName]),
       sanitized
     );
   }

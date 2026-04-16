@@ -2,7 +2,10 @@ from pathlib import Path
 from typing import Dict, List
 
 from .cumulative_scoring import build_scored_entry
-from .knockout import generate_full_knockout_bracket
+from .knockout import (
+    ThirdPlaceAdvancementTiebreakRequired,
+    generate_full_knockout_bracket,
+)
 from .knockout_scoring import picks_to_lookup, score_knockout_picks
 from .leaderboard import build_leaderboard
 from .loader import load_entries_from_dir, load_tournament_config, load_truth_config
@@ -12,12 +15,13 @@ from .standings import compute_all_group_standings
 from .validator import (
     validate_entry_config,
     validate_knockout_picks,
+    validate_knockout_winner_lookup,
     validate_tournament_config,
     validate_truth_config,
 )
 
 
-def score_single_entry(entry: EntryConfig) -> dict:
+def load_runtime_context() -> tuple:
     project_root = Path(__file__).resolve().parent.parent
 
     tournament = load_tournament_config(project_root / "config" / "tournament.json")
@@ -25,6 +29,46 @@ def score_single_entry(entry: EntryConfig) -> dict:
 
     validate_tournament_config(tournament)
     validate_truth_config(tournament, truth)
+
+    return tournament, truth
+
+
+def generate_knockout_bracket_preview(entry: EntryConfig) -> dict:
+    tournament, _truth = load_runtime_context()
+
+    validate_entry_config(tournament, entry)
+
+    predicted_standings = compute_all_group_standings(
+        tournament=tournament,
+        results_by_match_id=entry.predictions,
+        group_overrides={},
+    )
+
+    predicted_pick_lookup = picks_to_lookup(entry.knockout_picks)
+    predicted_bracket = generate_full_knockout_bracket(
+        predicted_standings=predicted_standings,
+        knockout_pick_lookup=predicted_pick_lookup,
+        advancing_third_place_groups=entry.advancing_third_place_groups,
+    )
+
+    validate_knockout_picks(entry, predicted_bracket)
+
+    return {
+        "entry_name": entry.entry_name,
+        "predicted_standings": {
+            gid: [row.__dict__ for row in standing.rows]
+            for gid, standing in predicted_standings.items()
+        },
+        "predicted_bracket": {
+            round_name: [match.__dict__ for match in matches]
+            for round_name, matches in predicted_bracket.items()
+        },
+        "advancing_third_place_groups": entry.advancing_third_place_groups,
+    }
+
+
+def score_single_entry(entry: EntryConfig) -> dict:
+    tournament, truth = load_runtime_context()
     validate_entry_config(tournament, entry)
 
     actual_standings = compute_all_group_standings(
@@ -48,25 +92,44 @@ def score_single_entry(entry: EntryConfig) -> dict:
     )
 
     predicted_pick_lookup = picks_to_lookup(entry.knockout_picks)
+    knockout_warning = None
 
-    predicted_bracket = generate_full_knockout_bracket(
-        predicted_standings=predicted_standings,
-        knockout_pick_lookup=predicted_pick_lookup,
-    )
+    try:
+        predicted_bracket = generate_full_knockout_bracket(
+            predicted_standings=predicted_standings,
+            knockout_pick_lookup=predicted_pick_lookup,
+            advancing_third_place_groups=entry.advancing_third_place_groups,
+        )
 
-    actual_bracket = generate_full_knockout_bracket(
-        predicted_standings=actual_standings,
-        knockout_pick_lookup=truth.knockout_results or {},
-    )
+        actual_bracket = generate_full_knockout_bracket(
+            predicted_standings=actual_standings,
+            knockout_pick_lookup=truth.knockout_results or {},
+            advancing_third_place_groups=truth.advancing_third_place_groups,
+        )
 
-    validate_knockout_picks(entry, predicted_bracket)
+        validate_knockout_picks(entry, predicted_bracket)
+        validate_knockout_winner_lookup(
+            winner_lookup=truth.knockout_results or {},
+            bracket=actual_bracket,
+            label="truth",
+        )
 
-    knockout_result = score_knockout_picks(
-        predicted_bracket=predicted_bracket,
-        actual_bracket=actual_bracket,
-        predicted_pick_lookup=predicted_pick_lookup,
-        actual_winner_lookup=truth.knockout_results or {},
-    )
+        knockout_result = score_knockout_picks(
+            predicted_bracket=predicted_bracket,
+            actual_bracket=actual_bracket,
+            predicted_pick_lookup=predicted_pick_lookup,
+            actual_winner_lookup=truth.knockout_results or {},
+        )
+    except ValueError as error:
+        predicted_bracket = {}
+        actual_bracket = {}
+        knockout_result = {
+            "knockout_scores": [],
+            "knockout_points": 0,
+        }
+        knockout_warning = str(error)
+    except ThirdPlaceAdvancementTiebreakRequired:
+        raise
 
     scored = build_scored_entry(
         entry_name=entry.entry_name,
@@ -101,4 +164,5 @@ def score_single_entry(entry: EntryConfig) -> dict:
             round_name: [match.__dict__ for match in matches]
             for round_name, matches in actual_bracket.items()
         },
+        "knockout_warning": knockout_warning,
     }

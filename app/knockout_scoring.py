@@ -3,13 +3,16 @@ from typing import Dict, List
 from .models import KnockoutMatch, KnockoutPick, KnockoutScoreBreakdown
 
 
-KNOCKOUT_ROUND_POINTS = {
-    "R32": 4,
-    "R16": 8,
-    "QF": 12,
-    "SF": 18,
-    "FINAL": 28,
+KNOCKOUT_STAGE_POINTS = {
+    "R32": 2,
+    "R16": 4,
+    "QF": 8,
+    "SF": 16,
+    "FINAL": 32,
+    "CHAMPION": 48,
 }
+
+KNOCKOUT_SCORING_STAGES = ["R32", "R16", "QF", "SF", "FINAL"]
 
 
 def picks_to_lookup(knockout_picks: List[KnockoutPick] | None) -> Dict[str, str]:
@@ -22,12 +25,66 @@ def picks_to_lookup(knockout_picks: List[KnockoutPick] | None) -> Dict[str, str]
     }
 
 
-def matches_to_lookup(bracket: Dict[str, List[KnockoutMatch]]) -> Dict[str, KnockoutMatch]:
-    lookup: Dict[str, KnockoutMatch] = {}
-    for matches in bracket.values():
-        for match in matches:
-            lookup[match.slot_id] = match
-    return lookup
+def teams_in_round(matches: List[KnockoutMatch] | None) -> List[str]:
+    seen: set[str] = set()
+    teams: List[str] = []
+
+    for match in matches or []:
+        for team in (match.home_team, match.away_team):
+            if team and team not in seen:
+                seen.add(team)
+                teams.append(team)
+
+    return teams
+
+
+def bracket_stage_teams(bracket: Dict[str, List[KnockoutMatch]]) -> Dict[str, List[str]]:
+    return {
+        stage_name: teams_in_round(bracket.get(stage_name))
+        for stage_name in KNOCKOUT_SCORING_STAGES
+    }
+
+
+def score_stage_participants(
+    stage_name: str,
+    predicted_teams: List[str],
+    actual_teams: List[str],
+) -> List[KnockoutScoreBreakdown]:
+    actual_team_set = set(actual_teams)
+    stage_points = KNOCKOUT_STAGE_POINTS[stage_name]
+
+    breakdowns: List[KnockoutScoreBreakdown] = []
+    for team in sorted(predicted_teams):
+        reached_stage = team in actual_team_set
+        breakdowns.append(
+            KnockoutScoreBreakdown(
+                stage_name=stage_name,
+                team=team,
+                points=stage_points if reached_stage else 0,
+                reason="Correctly reached stage" if reached_stage else "Did not reach stage",
+            )
+        )
+    return breakdowns
+
+
+def score_champion(
+    predicted_pick_lookup: Dict[str, str],
+    actual_winner_lookup: Dict[str, str],
+) -> List[KnockoutScoreBreakdown]:
+    predicted_champion = predicted_pick_lookup.get("M104")
+    actual_champion = actual_winner_lookup.get("M104")
+
+    if not predicted_champion:
+        return []
+
+    return [
+        KnockoutScoreBreakdown(
+            stage_name="CHAMPION",
+            team=predicted_champion,
+            points=KNOCKOUT_STAGE_POINTS["CHAMPION"] if predicted_champion == actual_champion else 0,
+            reason="Correct champion" if predicted_champion == actual_champion else "Incorrect champion",
+        )
+    ]
 
 
 def score_knockout_picks(
@@ -36,73 +93,26 @@ def score_knockout_picks(
     predicted_pick_lookup: Dict[str, str],
     actual_winner_lookup: Dict[str, str],
 ) -> Dict[str, object]:
-    predicted_match_lookup = matches_to_lookup(predicted_bracket)
-    actual_match_lookup = matches_to_lookup(actual_bracket)
+    predicted_stage_teams = bracket_stage_teams(predicted_bracket)
+    actual_stage_teams = bracket_stage_teams(actual_bracket)
 
     breakdowns: List[KnockoutScoreBreakdown] = []
 
-    for slot_id, actual_winner in actual_winner_lookup.items():
-        actual_match = actual_match_lookup.get(slot_id)
-        predicted_match = predicted_match_lookup.get(slot_id)
-        predicted_winner = predicted_pick_lookup.get(slot_id)
-
-        if not actual_match or not predicted_match:
-            continue
-
-        round_name = actual_match.round_name
-        round_points = KNOCKOUT_ROUND_POINTS[round_name]
-
-        if predicted_winner is None:
-            breakdowns.append(
-                KnockoutScoreBreakdown(
-                    round_name=round_name,
-                    slot_id=slot_id,
-                    predicted_winner=None,
-                    actual_winner=actual_winner,
-                    points=0,
-                    reason="No pick submitted",
-                )
-            )
-            continue
-
-        predicted_teams = {predicted_match.home_team, predicted_match.away_team}
-
-        if predicted_winner != actual_winner:
-            breakdowns.append(
-                KnockoutScoreBreakdown(
-                    round_name=round_name,
-                    slot_id=slot_id,
-                    predicted_winner=predicted_winner,
-                    actual_winner=actual_winner,
-                    points=0,
-                    reason="Incorrect winner",
-                )
-            )
-            continue
-
-        if actual_winner not in predicted_teams:
-            breakdowns.append(
-                KnockoutScoreBreakdown(
-                    round_name=round_name,
-                    slot_id=slot_id,
-                    predicted_winner=predicted_winner,
-                    actual_winner=actual_winner,
-                    points=0,
-                    reason="Winner matched but matchup path was incorrect",
-                )
-            )
-            continue
-
-        breakdowns.append(
-            KnockoutScoreBreakdown(
-                round_name=round_name,
-                slot_id=slot_id,
-                predicted_winner=predicted_winner,
-                actual_winner=actual_winner,
-                points=round_points,
-                reason="Correct winner",
+    for stage_name in KNOCKOUT_SCORING_STAGES:
+        breakdowns.extend(
+            score_stage_participants(
+                stage_name=stage_name,
+                predicted_teams=predicted_stage_teams[stage_name],
+                actual_teams=actual_stage_teams[stage_name],
             )
         )
+
+    breakdowns.extend(
+        score_champion(
+            predicted_pick_lookup=predicted_pick_lookup,
+            actual_winner_lookup=actual_winner_lookup,
+        )
+    )
 
     total_points = sum(item.points for item in breakdowns)
 

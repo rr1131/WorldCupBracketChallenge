@@ -1,5 +1,6 @@
 import MatchCard from "@/components/entry/MatchCard";
 import StandingsTable from "@/components/entry/StandingsTable";
+import TeamBadge from "@/components/entry/TeamBadge";
 import type {
   Group,
   Match,
@@ -27,28 +28,42 @@ export default function GroupCard({
   onChange,
 }: GroupCardProps) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold text-slate-950">Group {group.id}</h2>
-        <p className="text-sm text-slate-500">{group.teams.join(" • ")}</p>
+    <div className="rounded-[30px] border border-amber-300/40 bg-[linear-gradient(160deg,rgba(7,27,45,0.98),rgba(18,59,82,0.96))] p-5 shadow-[0_32px_80px_rgba(15,23,42,0.2)]">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/70">
+            Group {group.id}
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Lock in this quartet
+          </h2>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {group.teams.map((team) => (
+            <TeamBadge key={team} teamCode={team} tone="gold" compact />
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {matches.map((match) => (
-          <MatchCard
-            key={match.id}
-            match={match}
-            prediction={predictions[match.id]}
-            onChange={onChange}
-          />
-        ))}
-      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-3 md:grid-cols-2">
+          {matches.map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              prediction={predictions[match.id]}
+              onChange={onChange}
+            />
+          ))}
+        </div>
 
-      <StandingsTable
-        tournament={tournament}
-        groupId={group.id}
-        predictions={predictions}
-      />
+        <StandingsTable
+          tournament={tournament}
+          groupId={group.id}
+          predictions={predictions}
+        />
+      </div>
     </div>
   );
 }

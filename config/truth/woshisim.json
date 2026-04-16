@@ -76,12 +76,54 @@
     { "match_id": "J6", "home_score": 0, "away_score": 2 }
   ],
   "group_overrides": {
-  "B": ["SUI", "CAN", "BIH", "QAT"]
+    "B": ["SUI", "CAN", "BIH", "QAT"]
+  },
+  "advancing_third_place_groups": [
+    "A",
+    "B",
+    "C",
+    "E",
+    "F",
+    "I",
+    "K",
+    "L"
+  ],
+  "knockout_results": {
+    "M73": "CAN",
+    "M74": "GER",
+    "M75": "NED",
+    "M76": "BRA",
+    "M77": "FRA",
+    "M78": "SEN",
+    "M79": "MEX",
+    "M80": "ENG",
+    "M81": "USA",
+    "M82": "BEL",
+    "M83": "CRO",
+    "M84": "ESP",
+    "M85": "SUI",
+    "M86": "ARG",
+    "M87": "POR",
+    "M88": "TUR",
+    "M89": "NED",
+    "M90": "FRA",
+    "M91": "BRA",
+    "M92": "ENG",
+    "M93": "ESP",
+    "M94": "BEL",
+    "M95": "ARG",
+    "M96": "POR",
+    "M97": "FRA",
+    "M98": "ESP",
+    "M99": "BRA",
+    "M100": "ARG",
+    "M101": "FRA",
+    "M102": "ARG",
+    "M104": "ARG"
   },
   "tiebreak_overrides": {
-  "group_rank_order": {
-    "B": ["SUI", "CAN"]
-  },
-  "advancing_third_place_teams": ["B", "F", "H", "I", "J", "K", "L", "A"]
-}
+    "group_rank_order": {
+      "B": ["SUI", "CAN"]
+    }
+  }
 }

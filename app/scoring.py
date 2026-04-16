@@ -7,7 +7,6 @@ from .models import (
     Match,
     MatchResult,
     MatchScoreBreakdown,
-    ScoredEntry,
     TournamentConfig,
 )
 
@@ -156,7 +155,7 @@ def score_group_stage_entry(
     truth_results: Dict[str, MatchResult],
     predicted_standings: Dict[str, GroupStanding],
     actual_standings: Dict[str, GroupStanding],
-) -> ScoredEntry:
+) -> dict:
     match_scores = score_all_matches(
         tournament=tournament,
         entry=entry,
@@ -174,16 +173,16 @@ def score_group_stage_entry(
     exact_order_count = sum(1 for g in group_scores if g.exact_order_bonus > 0)
     top_two_bonus_count = sum(1 for g in group_scores if g.top_two_bonus > 0)
 
-    return ScoredEntry(
-        entry_name=entry.entry_name,
-        match_scores=match_scores,
-        group_scores=group_scores,
-        match_points=match_points,
-        standing_points=standing_points,
-        total_points=total_points,
-        exact_order_count=exact_order_count,
-        top_two_bonus_count=top_two_bonus_count,
-    )
+    return {
+        "entry_name": entry.entry_name,
+        "match_scores": match_scores,
+        "group_scores": group_scores,
+        "match_points": match_points,
+        "standing_points": standing_points,
+        "total_points": total_points,
+        "exact_order_count": exact_order_count,
+        "top_two_bonus_count": top_two_bonus_count,
+    }
 
 
 def explain_group_scoring(

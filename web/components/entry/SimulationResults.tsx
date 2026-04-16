@@ -4,6 +4,7 @@ import { KNOCKOUT_ROUNDS } from "@/lib/knockout";
 import type { SimulatedScoreResponse, TournamentConfig } from "@/lib/types";
 
 const typedTournament = tournament as TournamentConfig;
+const KNOCKOUT_SCORING_STAGES = [...KNOCKOUT_ROUNDS, "CHAMPION"] as const;
 
 type SimulationResultsProps = {
   result: SimulatedScoreResponse;
@@ -12,16 +13,16 @@ type SimulationResultsProps = {
 export default function SimulationResults({
   result,
 }: SimulationResultsProps) {
-  const knockoutScoresByRound = useMemo(() => {
+  const knockoutScoresByStage = useMemo(() => {
     const grouped: Record<string, SimulatedScoreResponse["knockout_scores"]> = {};
 
-    for (const roundName of KNOCKOUT_ROUNDS) {
-      grouped[roundName] = [];
+    for (const stageName of KNOCKOUT_SCORING_STAGES) {
+      grouped[stageName] = [];
     }
 
     for (const knockoutScore of result.knockout_scores) {
-      grouped[knockoutScore.round_name] ??= [];
-      grouped[knockoutScore.round_name].push(knockoutScore);
+      grouped[knockoutScore.stage_name] ??= [];
+      grouped[knockoutScore.stage_name].push(knockoutScore);
     }
 
     return grouped;
@@ -104,7 +105,8 @@ export default function SimulationResults({
           <div>
             <h3 className="text-xl font-semibold text-slate-950">Knockout breakdown</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Points are awarded only when the winner and the bracket path both match.
+              Points are awarded for each team you correctly place into each stage, even if
+              their exact path through the bracket differs.
             </p>
           </div>
           <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -112,39 +114,39 @@ export default function SimulationResults({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-5">
-          {KNOCKOUT_ROUNDS.map((roundName) => {
-            const roundScores = knockoutScoresByRound[roundName] ?? [];
-            const roundPoints = roundScores.reduce((sum, item) => sum + item.points, 0);
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          {KNOCKOUT_SCORING_STAGES.map((stageName) => {
+            const stageScores = knockoutScoresByStage[stageName] ?? [];
+            const stagePoints = stageScores.reduce((sum, item) => sum + item.points, 0);
 
             return (
               <div
-                key={roundName}
+                key={stageName}
                 className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      {roundName}
+                      {stageName}
                     </div>
                     <div className="mt-1 text-lg font-semibold text-slate-950">
-                      {roundPoints} pts
+                      {stagePoints} pts
                     </div>
                   </div>
                   <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500">
-                    {roundScores.length} picks
+                    {stageScores.length} teams
                   </div>
                 </div>
 
                 <div className="mt-4 space-y-3">
-                  {roundScores.map((score) => (
+                  {stageScores.map((score) => (
                     <article
-                      key={score.slot_id}
+                      key={`${score.stage_name}-${score.team}`}
                       className="rounded-2xl border border-slate-200 bg-white p-3"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          {score.slot_id}
+                          {score.stage_name}
                         </div>
                         <div className="rounded-lg bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white">
                           {score.points} pts
@@ -153,25 +155,17 @@ export default function SimulationResults({
 
                       <div className="mt-3 space-y-2 text-sm">
                         <div>
-                          <span className="text-slate-500">Predicted:</span>{" "}
-                          <span className="font-medium text-slate-900">
-                            {score.predicted_winner ?? "No pick"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Actual:</span>{" "}
-                          <span className="font-medium text-slate-900">
-                            {score.actual_winner ?? "TBD"}
-                          </span>
+                          <span className="text-slate-500">Team:</span>{" "}
+                          <span className="font-medium text-slate-900">{score.team}</span>
                         </div>
                         <div className="text-slate-500">{score.reason}</div>
                       </div>
                     </article>
                   ))}
 
-                  {roundScores.length === 0 && (
+                  {stageScores.length === 0 && (
                     <div className="text-sm text-slate-500">
-                      No completed scoring yet for this round.
+                      No teams scored for this stage.
                     </div>
                   )}
                 </div>
