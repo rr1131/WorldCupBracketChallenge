@@ -111,3 +111,51 @@ export type SimulatedScoreResponse = {
   actual_bracket: KnockoutBracket;
   knockout_warning?: string | null;
 };
+
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type RegisteredUser = AuthUser & {
+  password: string;
+};
+
+export type EntryStatus = "draft" | "knockout" | "scored";
+
+export type StoredEntry = {
+  id: string;
+  owner_id: string;
+  owner_name: string;
+  entry_name: string;
+  created_at: string;
+  updated_at: string;
+  status: EntryStatus;
+  predictions: MatchPrediction[];
+  advancing_third_place_groups?: string[];
+  knockout_picks?: KnockoutPick[];
+  knockout_preview?: KnockoutBracketPreviewResponse | null;
+  result?: SimulatedScoreResponse | null;
+  pool_ids: string[];
+  score_total?: number | null;
+};
+
+export type PoolRecord = {
+  id: string;
+  name: string;
+  description: string;
+  accent: string;
+  invite_code: string;
+  owner_id: string;
+  owner_name: string;
+  member_ids: string[];
+  created_at: string;
+};
+
+export type PersistedAppState = {
+  current_user_id: string | null;
+  users: RegisteredUser[];
+  entries: StoredEntry[];
+  pools: PoolRecord[];
+};

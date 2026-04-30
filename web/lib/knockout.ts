@@ -164,3 +164,30 @@ export function buildKnockoutPicks(
     })
   );
 }
+
+export function autofillKnockoutPickLookup(baseBracket: KnockoutBracket) {
+  const picksBySlot: KnockoutPickLookup = {};
+
+  for (const roundName of KNOCKOUT_ROUNDS) {
+    const derived = deriveKnockoutBracket(baseBracket, picksBySlot);
+    const matches = derived[roundName] ?? [];
+
+    for (const match of matches) {
+      const availableTeams = [match.home_team, match.away_team].filter(
+        (team): team is string => Boolean(team)
+      );
+
+      if (availableTeams.length === 0) {
+        continue;
+      }
+
+      const winner =
+        availableTeams[Math.floor(Math.random() * availableTeams.length)] ??
+        availableTeams[0];
+
+      picksBySlot[match.slot_id] = winner;
+    }
+  }
+
+  return picksBySlot;
+}

@@ -73,6 +73,9 @@ const RIGHT_LAYOUT: SlotPlacement[][] = [
 ];
 
 const DESKTOP_BRACKET_HEIGHT_CLASS = "h-[76vh] min-h-[680px]";
+const LEFT_SIDE_COLUMNS_CLASS = "grid-cols-[168px_144px_140px_124px]";
+const RIGHT_SIDE_COLUMNS_CLASS = "grid-cols-[124px_140px_144px_168px]";
+const CENTER_COLUMN_WIDTH_CLASS = "w-[176px]";
 
 function flattenBracket(baseBracket: KnockoutBracket) {
   return Object.fromEntries(
@@ -86,10 +89,33 @@ function getPlaceholderLabel(slotId: string) {
   return `W ${slotId}`;
 }
 
+function getRoundForSlot(slotId: string) {
+  const matchNumber = Number(slotId.replace("M", ""));
+
+  if (matchNumber >= 73 && matchNumber <= 88) {
+    return "R32";
+  }
+
+  if (matchNumber >= 89 && matchNumber <= 96) {
+    return "R16";
+  }
+
+  if (matchNumber >= 97 && matchNumber <= 100) {
+    return "QF";
+  }
+
+  if (matchNumber >= 101 && matchNumber <= 102) {
+    return "SF";
+  }
+
+  return "FINAL";
+}
+
 function TeamOption({
   slotId,
   side,
   team,
+  placeholderSlotId,
   selectedWinner,
   onSelectWinner,
 }: {
@@ -107,7 +133,7 @@ function TeamOption({
     return (
       <div
         className={[
-          "flex h-7 items-center rounded-lg border border-white/8 bg-white/6 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-50/40",
+          "flex h-7 w-full items-center rounded-lg border border-white/8 bg-white/6 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-50/40",
           side === "left" ? "justify-start text-left" : "justify-end text-right",
         ].join(" ")}
       >
@@ -122,7 +148,7 @@ function TeamOption({
       onClick={() => onSelectWinner(slotId, team)}
       disabled={isDisabled}
       className={[
-        "flex h-7 items-center gap-1.5 rounded-lg border px-2 transition",
+        "flex h-7 w-full items-center gap-1.5 rounded-lg border px-2 transition",
         side === "left" ? "justify-start text-left" : "justify-end text-right",
         isSelected
           ? "border-amber-300 bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950 shadow-[0_10px_25px_rgba(245,158,11,0.28)]"
@@ -153,18 +179,30 @@ function MatchNode({
   selectedWinner?: string;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
+  const roundName = getRoundForSlot(slotId);
   const connectorClass =
     side === "left"
       ? "after:absolute after:right-[-12px] after:top-1/2 after:h-px after:w-3 after:bg-pink-400/70"
       : side === "right"
         ? "before:absolute before:left-[-12px] before:top-1/2 before:h-px before:w-3 before:bg-pink-400/70"
         : "";
+  const cardHeightClass =
+    roundName === "R32"
+      ? "h-full min-h-[76px]"
+      : roundName === "R16"
+        ? "h-[108px]"
+        : roundName === "QF"
+          ? "h-[98px]"
+          : roundName === "SF"
+            ? "h-[88px]"
+            : "h-[120px]";
 
   return (
-    <div className="relative h-full">
+    <div className="relative flex h-full items-center">
       <div
         className={[
-          "relative flex h-full min-h-[76px] flex-col justify-center rounded-[22px] border border-cyan-300/10 bg-[linear-gradient(180deg,#0a2535,#0f3143)] p-2 shadow-[0_14px_34px_rgba(2,6,23,0.42)]",
+          "relative flex w-full flex-col justify-center overflow-hidden rounded-[22px] border border-cyan-300/10 bg-[linear-gradient(180deg,#0a2535,#0f3143)] p-2 shadow-[0_14px_34px_rgba(2,6,23,0.42)]",
+          cardHeightClass,
           connectorClass,
         ].join(" ")}
       >
@@ -212,9 +250,12 @@ function BracketSide({
   picksBySlot: KnockoutPickLookup;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
+  const columnClass =
+    side === "left" ? LEFT_SIDE_COLUMNS_CLASS : RIGHT_SIDE_COLUMNS_CLASS;
+
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-[1.55fr_1.15fr_0.92fr_0.76fr] gap-3">
+    <div className={["w-fit shrink-0 space-y-3", side === "right" ? "ml-auto" : ""].join(" ")}>
+      <div className={["grid gap-x-2.5 gap-y-3", columnClass].join(" ")}>
         {labels.map((label) => (
           <div
             key={label}
@@ -227,7 +268,8 @@ function BracketSide({
 
       <div
         className={[
-          "grid grid-cols-[1.55fr_1.15fr_0.92fr_0.76fr] grid-rows-8 gap-x-3 gap-y-2",
+          "grid grid-rows-8 gap-x-2.5 gap-y-2",
+          columnClass,
           DESKTOP_BRACKET_HEIGHT_CLASS,
         ].join(" ")}
       >
@@ -316,7 +358,7 @@ export default function KnockoutBracketPicker({
   }, [bracketLookup, picksBySlot]);
 
   return (
-    <section className="rounded-[34px] border border-cyan-300/12 bg-[linear-gradient(135deg,#071c2e,#0b2740_48%,#061524)] p-6 text-white shadow-[0_40px_120px_rgba(2,6,23,0.55)]">
+    <section className="rounded-[34px] border border-cyan-300/12 bg-[linear-gradient(135deg,#071c2e,#0b2740_48%,#061524)] p-6 text-white shadow-[0_40px_120px_rgba(2,6,23,0.55)] xl:relative xl:left-1/2 xl:w-[min(1480px,calc(100vw-2rem))] xl:max-w-none xl:-translate-x-1/2 xl:overflow-hidden">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300/75">
@@ -336,7 +378,7 @@ export default function KnockoutBracketPicker({
         </div>
       </div>
 
-      <div className="hidden xl:grid xl:grid-cols-[minmax(0,1fr)_190px_minmax(0,1fr)] xl:items-start xl:gap-5">
+      <div className="hidden xl:flex xl:items-start xl:justify-center xl:gap-4">
         <BracketSide
           layout={LEFT_LAYOUT}
           labels={LEFT_STAGE_LABELS}
@@ -347,7 +389,13 @@ export default function KnockoutBracketPicker({
           onSelectWinner={onSelectWinner}
         />
 
-        <div className={["flex flex-col justify-center", DESKTOP_BRACKET_HEIGHT_CLASS].join(" ")}>
+        <div
+          className={[
+            "flex shrink-0 flex-col justify-center",
+            CENTER_COLUMN_WIDTH_CLASS,
+            DESKTOP_BRACKET_HEIGHT_CLASS,
+          ].join(" ")}
+        >
           <div className="space-y-4">
             <div className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/55">
               Final
