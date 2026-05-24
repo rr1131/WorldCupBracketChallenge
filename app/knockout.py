@@ -1,3 +1,5 @@
+"""Knockout bracket generation and third-place resolution."""
+
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -10,6 +12,8 @@ from .models import GroupStanding, GroupStandingRow, KnockoutMatch
 
 @dataclass(frozen=True)
 class ThirdPlaceAdvancementTiebreakRequired(Exception):
+    """Raised when third-place advancement needs a manual selection."""
+
     locked_group_ids: List[str]
     candidate_group_ids: List[str]
     slots_remaining: int
@@ -70,6 +74,7 @@ KNOCKOUT_ADVANCEMENT_PAIRS = {
 
 
 def get_group_advancers(predicted_standings: Dict[str, GroupStanding]) -> dict:
+    """Extract winners, runners-up, and third-placed teams from group tables."""
     winners: Dict[str, str] = {}
     runners_up: Dict[str, str] = {}
     third_place_rows: List[GroupStandingRow] = []
@@ -87,6 +92,7 @@ def get_group_advancers(predicted_standings: Dict[str, GroupStanding]) -> dict:
 
 
 def third_place_sort_key(row: GroupStandingRow) -> tuple[int, int, int]:
+    """Build the primary ranking key for third-placed teams."""
     return (
         row.points,
         row.goal_difference,
@@ -95,6 +101,7 @@ def third_place_sort_key(row: GroupStandingRow) -> tuple[int, int, int]:
 
 
 def rank_third_place_teams(third_place_rows: List[GroupStandingRow]) -> List[GroupStandingRow]:
+    """Rank third-placed teams using tournament tiebreak rules."""
     return sorted(
         third_place_rows,
         key=lambda row: (
@@ -109,6 +116,7 @@ def rank_third_place_teams(third_place_rows: List[GroupStandingRow]) -> List[Gro
 def get_third_place_advancement_state(
     third_place_rows: List[GroupStandingRow],
 ) -> dict:
+    """Describe locked, tied, and ambiguous third-place advancement states."""
     ranked = rank_third_place_teams(third_place_rows)
     cutoff_key = third_place_sort_key(ranked[7])
 
@@ -130,6 +138,7 @@ def validate_advancing_third_place_override(
     third_place_rows: List[GroupStandingRow],
     override_group_ids: List[str],
 ) -> List[GroupStandingRow]:
+    """Validate and apply a manual advancing-third-place override."""
     row_by_group = {row.group_id: row for row in third_place_rows}
 
     if len(override_group_ids) != 8:
@@ -180,6 +189,7 @@ def get_advancing_third_place_teams(
     predicted_standings: Dict[str, GroupStanding],
     override_group_ids: List[str] | None = None,
 ) -> List[GroupStandingRow]:
+    """Resolve the advancing third-placed teams for the bracket."""
     advancers = get_group_advancers(predicted_standings)
     third_place_rows = advancers["third_place_rows"]
 
@@ -201,6 +211,7 @@ def generate_round_of_32(
     predicted_standings: Dict[str, GroupStanding],
     advancing_third_place_groups: List[str] | None = None,
 ) -> List[KnockoutMatch]:
+    """Generate the round-of-32 field from group standings."""
     advancers = get_group_advancers(predicted_standings)
     winners = advancers["winners"]
     runners_up = advancers["runners_up"]
@@ -244,6 +255,7 @@ def advance_knockout_round(
     next_round_name: str,
     pairings: List[tuple[str, str, str]],
 ) -> List[KnockoutMatch]:
+    """Build the next knockout round from known winners."""
     next_round_matches: List[KnockoutMatch] = []
 
     for slot_id, home_from_slot, away_from_slot in pairings:
@@ -264,6 +276,7 @@ def generate_full_knockout_bracket(
     knockout_pick_lookup: Dict[str, str] | None = None,
     advancing_third_place_groups: List[str] | None = None,
 ) -> Dict[str, List[KnockoutMatch]]:
+    """Generate every knockout round for a predicted or actual bracket."""
     knockout_pick_lookup = knockout_pick_lookup or {}
 
     r32 = generate_round_of_32(

@@ -1,11 +1,16 @@
+"""Validation helpers for tournament and entry data."""
+
 from .models import TournamentConfig, TruthConfig, EntryConfig, KnockoutMatch
 
 
 class ValidationError(Exception):
+    """Raised when tournament, truth, or entry data is invalid."""
+
     pass
 
 
 def validate_tournament_config(cfg: TournamentConfig) -> None:
+    """Validate tournament structure and team references."""
     for group_id, group in cfg.groups.items():
         if len(group.teams) != 4:
             raise ValidationError(f"Group {group_id} must have exactly 4 teams.")
@@ -27,6 +32,7 @@ def validate_tournament_config(cfg: TournamentConfig) -> None:
 
 
 def validate_truth_config(tournament: TournamentConfig, truth: TruthConfig) -> None:
+    """Validate a partial or complete truth snapshot."""
     for match_id, result in truth.results.items():
         if match_id not in tournament.matches:
             raise ValidationError(f"Truth result references unknown match {match_id}")
@@ -52,6 +58,7 @@ def validate_truth_config(tournament: TournamentConfig, truth: TruthConfig) -> N
 
 
 def validate_entry_config(tournament: TournamentConfig, entry: EntryConfig) -> None:
+    """Validate a complete, score-ready entry."""
     expected_match_ids = set(tournament.matches.keys())
     actual_match_ids = set(entry.predictions.keys())
 
@@ -79,6 +86,7 @@ def validate_advancing_third_place_groups(
     advancing_third_place_groups: list[str],
     label: str,
 ) -> None:
+    """Validate an advancing-third-place group override."""
     if len(advancing_third_place_groups) != 8:
         raise ValidationError(
             f"{label} must specify exactly 8 advancing third-place group ids."
@@ -102,6 +110,7 @@ def validate_knockout_picks(
     entry: EntryConfig,
     predicted_bracket: dict[str, list[KnockoutMatch]],
 ) -> None:
+    """Validate knockout picks against a generated bracket."""
     if not entry.knockout_picks:
         return
 
@@ -117,6 +126,7 @@ def validate_knockout_winner_lookup(
     bracket: dict[str, list[KnockoutMatch]],
     label: str,
 ) -> None:
+    """Validate a knockout winner lookup against an actual bracket."""
     if not winner_lookup:
         return
 

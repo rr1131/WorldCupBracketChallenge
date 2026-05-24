@@ -1,3 +1,5 @@
+"""Standings computation and tiebreak resolution."""
+
 from typing import Dict, List, Tuple
 
 from .models import (
@@ -11,6 +13,7 @@ from .models import (
 
 
 def initialize_group_stats(tournament: TournamentConfig, group_id: str) -> Dict[str, TeamStats]:
+    """Initialize empty standings rows for a group."""
     stats: Dict[str, TeamStats] = {}
     for team in tournament.groups[group_id].teams:
         stats[team] = TeamStats(team=team, group_id=group_id)
@@ -24,6 +27,7 @@ def apply_match_result(
     home_score: int,
     away_score: int,
 ) -> None:
+    """Apply one result to a pair of team stats."""
     home = stats[home_team]
     away = stats[away_team]
 
@@ -58,6 +62,7 @@ def get_group_matches_with_results(
     results_by_match_id: Dict[str, MatchResult],
     group_id: str,
 ) -> List[Tuple[Match, MatchResult]]:
+    """Return all matches and results for one group."""
     matches_with_results: List[Tuple[Match, MatchResult]] = []
 
     for match in tournament.matches.values():
@@ -220,6 +225,7 @@ def compute_group_standings(
     group_id: str,
     override: List[str] | None = None,
 ) -> GroupStanding:
+    """Compute a final or current table for one group."""
     stats = initialize_group_stats(tournament, group_id)
     group_matches_with_results = get_group_matches_with_results(
         tournament=tournament,
@@ -270,6 +276,7 @@ def compute_all_group_standings(
     results_by_match_id: Dict[str, MatchResult],
     group_overrides: Dict[str, List[str]] | None = None,
 ) -> Dict[str, GroupStanding]:
+    """Compute standings for every group in the tournament."""
     group_overrides = group_overrides or {}
     standings: Dict[str, GroupStanding] = {}
 

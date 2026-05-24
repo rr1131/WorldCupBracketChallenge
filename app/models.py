@@ -1,15 +1,21 @@
+"""Tournament-domain dataclasses used by scoring and validation."""
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
 class Group:
+    """A tournament group and its participating teams."""
+
     id: str
     teams: List[str]
 
 
 @dataclass(frozen=True)
 class Match:
+    """A scheduled group-stage match."""
+
     id: str
     group_id: str
     home_team: str
@@ -18,6 +24,8 @@ class Match:
 
 @dataclass(frozen=True)
 class MatchResult:
+    """A concrete scoreline for a match."""
+
     match_id: str
     home_score: int
     away_score: int
@@ -25,12 +33,16 @@ class MatchResult:
 
 @dataclass(frozen=True)
 class TournamentConfig:
+    """Parsed tournament configuration."""
+
     groups: Dict[str, Group]
     matches: Dict[str, Match]
 
 
 @dataclass(frozen=True)
 class TruthConfig:
+    """Partial or complete truth snapshot for tournament outcomes."""
+
     results: Dict[str, MatchResult]
     group_overrides: Dict[str, List[str]]
     advancing_third_place_groups: List[str] | None = None
@@ -39,6 +51,8 @@ class TruthConfig:
 
 @dataclass(frozen=True)
 class KnockoutPick:
+    """A predicted knockout winner for a bracket slot."""
+
     round_name: str
     slot_id: str
     winner_team: str
@@ -46,6 +60,8 @@ class KnockoutPick:
 
 @dataclass(frozen=True)
 class EntryConfig:
+    """A complete, scoreable bracket entry."""
+
     entry_name: str
     predictions: Dict[str, MatchResult]
     advancing_third_place_groups: List[str] | None = None
@@ -54,6 +70,8 @@ class EntryConfig:
 
 @dataclass
 class TeamStats:
+    """Accumulated standings stats for a team."""
+
     team: str
     group_id: str
     played: int = 0
@@ -68,6 +86,8 @@ class TeamStats:
 
 @dataclass(frozen=True)
 class GroupStandingRow:
+    """One ranked row within a final or projected group table."""
+
     position: int
     team: str
     group_id: str
@@ -83,12 +103,16 @@ class GroupStandingRow:
 
 @dataclass(frozen=True)
 class GroupStanding:
+    """A group table ordered from first to fourth."""
+
     group_id: str
     rows: List[GroupStandingRow]
 
 
 @dataclass(frozen=True)
 class MatchScoreBreakdown:
+    """Scoring details for a single group-stage match pick."""
+
     match_id: str
     group_id: str
     home_team: str
@@ -103,6 +127,8 @@ class MatchScoreBreakdown:
 
 @dataclass(frozen=True)
 class GroupScoreBreakdown:
+    """Scoring details for one final group table."""
+
     group_id: str
     exact_position_points: int
     top_two_bonus: int
@@ -112,6 +138,8 @@ class GroupScoreBreakdown:
 
 @dataclass(frozen=True)
 class KnockoutMatch:
+    """A knockout match pairing, optionally with unresolved participants."""
+
     round_name: str
     slot_id: str
     home_team: Optional[str]
@@ -120,6 +148,8 @@ class KnockoutMatch:
 
 @dataclass(frozen=True)
 class KnockoutScoreBreakdown:
+    """Scoring details for one knockout-stage team credit."""
+
     stage_name: str
     team: str
     points: int
@@ -128,6 +158,8 @@ class KnockoutScoreBreakdown:
 
 @dataclass(frozen=True)
 class ScoredEntry:
+    """A fully or partially scored entry summary."""
+
     entry_name: str
     match_scores: List[MatchScoreBreakdown]
     group_scores: List[GroupScoreBreakdown]

@@ -1,3 +1,5 @@
+"""JSON loaders for tournament, truth, and entry config files."""
+
 import json
 from pathlib import Path
 from typing import Dict
@@ -14,11 +16,13 @@ from .models import (
 
 
 def load_json(path: Path) -> dict:
+    """Read a JSON file from disk."""
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def load_tournament_config(path: Path) -> TournamentConfig:
+    """Load and normalize the tournament configuration file."""
     raw = load_json(path)
 
     groups = {
@@ -40,6 +44,7 @@ def load_tournament_config(path: Path) -> TournamentConfig:
 
 
 def load_truth_config(path: Path) -> TruthConfig:
+    """Load and normalize a partial or complete truth snapshot."""
     raw = load_json(path)
 
     results = {
@@ -65,6 +70,7 @@ def load_truth_config(path: Path) -> TruthConfig:
 
 
 def load_entry_config(path: Path) -> EntryConfig:
+    """Load a complete entry config from disk."""
     raw = load_json(path)
 
     predictions = {
@@ -93,6 +99,7 @@ def load_entry_config(path: Path) -> EntryConfig:
 
 
 def load_entries_from_dir(path: Path) -> Dict[str, EntryConfig]:
+    """Load all entry configs from a directory keyed by entry name."""
     entries: Dict[str, EntryConfig] = {}
     for file_path in sorted(path.glob("*.json")):
         entry = load_entry_config(file_path)
