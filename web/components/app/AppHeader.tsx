@@ -40,7 +40,7 @@ export default function AppHeader({
             href="/workspace"
             className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
           >
-            Workspace
+            My Wizard
           </Link>
         ) : null}
 

@@ -35,9 +35,10 @@ export default function HomePage() {
                 World Cup Bracket Challenge
               </h1>
               <p className="rr-body mt-6 max-w-2xl text-lg leading-8">
-                Build every group, generate the official knockout bracket, and score complete
-                entries against the tournament truth data. Then drop your entries into pools
-                and track the leaderboard with everyone else.
+                Welcome to the RatRace WC Bracket Challenge! Build every group, generate the
+                official knockout bracket, and let your entries score themselves as live World
+                Cup results roll in. Then drop your brackets into pools and chase the table with
+                everyone else.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -56,7 +57,7 @@ export default function HomePage() {
                     onClick={() => router.push("/workspace")}
                     className="rr-secondary-btn rounded-full px-7 py-3 text-base font-semibold"
                   >
-                    Open Workspace
+                    Open My Wizard
                   </button>
                 ) : (
                   <button
@@ -79,7 +80,7 @@ export default function HomePage() {
                   {[
                     "Pick all 12 groups with compact score entry cards.",
                     "Generate the Round of 32 and click winners forward.",
-                    "Score the finished bracket and compare it inside pools.",
+                    "Pick YOUR champion!"
                   ].map((line) => (
                     <div
                       key={line}
@@ -93,10 +94,10 @@ export default function HomePage() {
 
               <div className="rr-card-accent rounded-[28px] p-6">
                 <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.26em]">
-                  Signed-In Workspace
+                  Signed-In My Wizard
                 </div>
                 <div className="rr-body mt-4 text-sm leading-7">
-                  Once you&apos;re signed in, your workspace gives you two clean tabs:
+                  Once you&apos;re signed in, your My Wizard area gives you two clean tabs:
                   entries for building and editing your own submissions, and pools for
                   leaderboard-driven competition.
                 </div>

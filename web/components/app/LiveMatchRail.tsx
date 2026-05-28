@@ -49,6 +49,10 @@ function getScoreline(fixture: LiveFixture) {
   return `${fixture.home_score} - ${fixture.away_score}`;
 }
 
+function shouldShowStatusBadge(fixture: LiveFixture) {
+  return fixture.status !== "scheduled";
+}
+
 function sortFixturesByKickoffProximity(fixtures: LiveFixture[]) {
   const now = Date.now();
 
@@ -206,35 +210,48 @@ export default function LiveMatchRail() {
                       {formatStageLabel(fixture)}
                     </div>
                   </div>
-                  <div
-                    className={[
-                      "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
-                      fixture.status === "final"
-                        ? "bg-[#fdeef0] text-[#8e1f29]"
-                        : fixture.status === "in_progress"
-                          ? "bg-[#fff4e4] text-[#9a4b0f]"
-                          : "bg-[#f7f1ee] text-[#6b5752]",
-                    ].join(" ")}
-                  >
-                    {fixture.display_status}
-                  </div>
+                  {shouldShowStatusBadge(fixture) ? (
+                    <div
+                      className={[
+                        "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                        fixture.status === "final"
+                          ? "bg-[#fdeef0] text-[#8e1f29]"
+                          : fixture.status === "in_progress"
+                            ? "bg-[#fff4e4] text-[#9a4b0f]"
+                            : "bg-[#f7f1ee] text-[#6b5752]",
+                      ].join(" ")}
+                    >
+                      {fixture.display_status}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl border border-[rgba(146,86,76,0.14)] bg-white px-3 py-3">
-                    {fixture.home_team ? (
-                      <TeamBadge teamCode={fixture.home_team} tone="dark" compact />
-                    ) : (
-                      <div className="rr-body text-sm">TBD</div>
-                    )}
-                  </div>
-                  <div className="rounded-2xl border border-[rgba(146,86,76,0.14)] bg-white px-3 py-3">
-                    {fixture.away_team ? (
-                      <TeamBadge teamCode={fixture.away_team} tone="dark" compact />
-                    ) : (
-                      <div className="rr-body text-sm">TBD</div>
-                    )}
-                  </div>
+                  {[fixture.home_team, fixture.away_team].map((team, index) => {
+                    const isWinner =
+                      fixture.status === "final" &&
+                      fixture.winner_team !== null &&
+                      fixture.winner_team !== undefined &&
+                      fixture.winner_team === team;
+
+                    return (
+                      <div
+                        key={`${fixture.fixture_id}-${team ?? index}`}
+                        className={[
+                          "rounded-2xl border px-3 py-3 transition",
+                          isWinner
+                            ? "border-[#72bf78] bg-[linear-gradient(135deg,#edf8ee,#d8f0db)] shadow-[0_10px_28px_rgba(58,140,74,0.16)]"
+                            : "border-[rgba(146,86,76,0.14)] bg-white",
+                        ].join(" ")}
+                      >
+                        {team ? (
+                          <TeamBadge teamCode={team} tone="dark" compact />
+                        ) : (
+                          <div className="rr-body text-sm">TBD</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 flex items-end justify-between gap-3">

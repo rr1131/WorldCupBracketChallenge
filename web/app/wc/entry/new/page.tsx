@@ -29,7 +29,7 @@ export default function NewEntryRedirectPage() {
       <div className="rr-frame mx-auto max-w-3xl rounded-[32px] p-8 text-center">
         <div className="rr-kicker text-sm uppercase tracking-[0.28em]">Preparing Entry</div>
         <div className="mt-4 text-2xl font-semibold text-[#251a18]">
-          Creating your next bracket workspace...
+          Creating your next bracket wizard...
         </div>
       </div>
     </main>

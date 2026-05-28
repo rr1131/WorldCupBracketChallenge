@@ -30,7 +30,7 @@ export default function EntryDetailPage() {
     }
 
     const confirmed = window.confirm(
-      "Delete this entry from your workspace? This also removes it from any pools it was in."
+      "Delete this entry from your wizard? This also removes it from any pools it was in."
     );
     if (!confirmed) {
       return;

@@ -81,7 +81,7 @@ export default function WorkspacePage() {
 
   function handleDeleteEntry(entryId: string) {
     const confirmed = window.confirm(
-      "Delete this entry from your workspace? This also removes it from any pools it was in."
+      "Delete this entry from your wizard? This also removes it from any pools it was in."
     );
 
     if (!confirmed) {
@@ -106,7 +106,7 @@ export default function WorkspacePage() {
           <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.28em]">
-                Workspace
+                My Wizard
               </div>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[#251a18]">
                 {currentUser ? `${currentUser.name}'s control room` : "Your control room"}
@@ -125,6 +125,12 @@ export default function WorkspacePage() {
             >
               Create New Entry
             </button>
+            <Link
+              href="/about"
+              className="rr-secondary-btn rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              About Scoring
+            </Link>
           </div>
 
           <div className="rr-tab-strip mt-8 inline-flex rounded-full p-1">
@@ -254,20 +260,20 @@ export default function WorkspacePage() {
                   <input
                     value={newPoolName}
                     onChange={(event) => setNewPoolName(event.target.value)}
-                    placeholder="Office Pool"
+                    placeholder="Pool Name"
                     className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />
                   <textarea
                     value={newPoolDescription}
                     onChange={(event) => setNewPoolDescription(event.target.value)}
-                    placeholder="A high-chaos pool for the office group chat."
+                    placeholder="Description"
                     rows={4}
                     className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />
                   <input
                     value={newPoolPassword}
                     onChange={(event) => setNewPoolPassword(event.target.value)}
-                    placeholder="Optional shared password"
+                    placeholder= "Password (Optional)"
                     type="password"
                     className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />

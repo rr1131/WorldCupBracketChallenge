@@ -247,7 +247,7 @@ export default function PoolDetailPage() {
                 href="/workspace"
                 className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
               >
-                Back to workspace
+                Back to My Wizard
               </Link>
             </div>
 

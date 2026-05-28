@@ -60,7 +60,7 @@ export default function JoinPoolPage() {
                   href="/workspace"
                   className="rr-primary-btn rounded-full px-5 py-3 text-sm font-semibold"
                 >
-                  Back to Workspace
+                  Back to My Wizard
                 </Link>
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function JoinPoolPage() {
                     href="/workspace"
                     className="rr-secondary-btn rounded-full px-5 py-3 text-sm font-semibold"
                   >
-                    Back to Workspace
+                    Back to My Wizard
                   </Link>
                 </div>
               </div>

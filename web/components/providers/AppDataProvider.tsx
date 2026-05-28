@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import tournament from "@/data/tournament.json";
+import { maxTotalPoints } from "@/lib/maxPoints";
 import type {
   AuthUser,
   MatchPrediction,
@@ -22,6 +23,7 @@ import type {
 
 const typedTournament = tournament as TournamentConfig;
 const STORAGE_KEY = "world-cup-bracket-challenge-app-state-v1";
+const TOTAL_MAX_POINTS = maxTotalPoints(typedTournament);
 
 type RegisterInput = {
   name: string;
@@ -91,7 +93,7 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-atlantic", "pool-studio"],
       score_total: 418,
-      max_possible_points: 596,
+      max_possible_points: 612,
       result: null,
     },
     {
@@ -105,7 +107,7 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-atlantic"],
       score_total: 402,
-      max_possible_points: 584,
+      max_possible_points: 600,
       result: null,
     },
     {
@@ -119,10 +121,22 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-studio"],
       score_total: 287,
-      max_possible_points: 548,
+      max_possible_points: 564,
       result: null,
     },
   ];
+}
+
+function normalizeEntryMaxPoints(entry: StoredEntry) {
+  if (entry.max_possible_points === TOTAL_MAX_POINTS) {
+    return TOTAL_MAX_POINTS;
+  }
+
+  if (entry.max_possible_points === 740) {
+    return TOTAL_MAX_POINTS;
+  }
+
+  return entry.max_possible_points ?? null;
 }
 
 function createInviteCode(name: string) {
@@ -207,7 +221,7 @@ function normalizeState(rawState: PersistedAppState): PersistedAppState {
     ...entry,
     predictions: entry.predictions ?? createBlankPredictions(),
     pool_ids: entry.pool_ids ?? [],
-    max_possible_points: entry.max_possible_points ?? null,
+    max_possible_points: normalizeEntryMaxPoints(entry),
   }));
 
   const pools = (rawState.pools?.length ? rawState.pools : fallback.pools).map((pool, index) => {

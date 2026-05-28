@@ -9,7 +9,7 @@ KNOCKOUT_STAGE_POINTS = {
     "QF": 8,
     "SF": 16,
     "FINAL": 32,
-    "CHAMPION": 48,
+    "CHAMPION": 64,
 }
 
 KNOCKOUT_SCORING_STAGES = ["R32", "R16", "QF", "SF", "FINAL"]

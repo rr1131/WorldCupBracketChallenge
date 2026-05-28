@@ -5,6 +5,7 @@ import Link from "next/link";
 import GroupCard from "@/components/entry/GroupCard";
 import KnockoutBracketPicker from "@/components/entry/KnockoutBracketPicker";
 import { buildApiUrl } from "@/lib/api";
+import { maxTotalPoints } from "@/lib/maxPoints";
 import type { StoredEntry } from "@/lib/types";
 import TeamBadge from "@/components/entry/TeamBadge";
 import tournament from "@/data/tournament.json";
@@ -202,14 +203,20 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       knockout_preview: knockoutPreview,
       result: null,
       score_total: null,
+      max_possible_points:
+        knockoutPreview !== null && knockoutPicks.length === totalKnockoutMatches
+          ? maxTotalPoints(typedTournament)
+          : null,
       status: (knockoutPreview ? "knockout" : "draft") as StoredEntry["status"],
     }),
     [
       entryName,
       entryPayload.knockout_picks,
       entryPayload.predictions,
+      knockoutPicks.length,
       knockoutPreview,
       resolvedAdvancingThirdPlaceGroups,
+      totalKnockoutMatches,
     ]
   );
 
@@ -493,7 +500,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                   href="/workspace"
                   className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                 >
-                  Back to Workspace
+                  Back to My Wizard
                 </Link>
               </div>
 
@@ -501,7 +508,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 Build the groups first, then advance into the knockout bracket.
               </h1>
               <p className="rr-body mt-3 max-w-3xl text-sm leading-6">
-                This entry auto-saves locally to your workspace as you build it. Official points
+                This entry auto-saves locally to your My Wizard area as you build it. Official points
                 will arrive automatically from live match results.
               </p>
 

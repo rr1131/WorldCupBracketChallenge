@@ -103,7 +103,7 @@ export default function RegisterPage() {
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       className="rr-input w-full rounded-2xl px-4 py-3 transition"
-                      placeholder="Rodrigo"
+                      placeholder="Josh Mcdonaldson"
                     />
                   </label>
                 ) : null}
@@ -114,7 +114,7 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     className="rr-input w-full rounded-2xl px-4 py-3 transition"
-                    placeholder="name@example.com"
+                    placeholder="MocheWave@example.com"
                   />
                 </label>
 
