@@ -11,7 +11,7 @@ import type { StoredEntry } from "@/lib/types";
 export default function EntryDetailPage() {
   const router = useRouter();
   const params = useParams<{ entryId: string }>();
-  const { canEditEntry, currentUser, getEntryById, isHydrated, updateEntry } = useAppData();
+  const { canEditEntry, currentUser, deleteEntry, getEntryById, isHydrated, updateEntry } = useAppData();
   const entry = getEntryById(params.entryId);
   const isEditable = canEditEntry(entry);
   const handleSave = useCallback(
@@ -24,6 +24,26 @@ export default function EntryDetailPage() {
     },
     [entry, updateEntry]
   );
+  const handleDelete = useCallback(() => {
+    if (!entry) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this entry from your workspace? This also removes it from any pools it was in."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const outcome = deleteEntry(entry.id);
+    if (!outcome.ok) {
+      window.alert(outcome.message);
+      return;
+    }
+
+    router.replace("/workspace");
+  }, [deleteEntry, entry, router]);
 
   useEffect(() => {
     if (isHydrated && !currentUser) {
@@ -33,11 +53,11 @@ export default function EntryDetailPage() {
 
   if (isHydrated && !entry) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,#13385d_0%,#0b2442_34%,#06111d_70%,#040910_100%)] px-4 py-8 text-white sm:px-6">
+      <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-5xl space-y-6">
-          <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,26,43,0.95),rgba(14,47,77,0.92))] p-6 shadow-[0_40px_120px_rgba(2,6,23,0.5)]">
+          <section className="rr-frame rounded-[32px] p-6">
             <AppHeader />
-            <div className="mt-10 text-lg text-cyan-100/72">That entry was not found.</div>
+            <div className="rr-body mt-10 text-lg">That entry was not found.</div>
           </section>
         </div>
       </main>
@@ -55,6 +75,7 @@ export default function EntryDetailPage() {
   return (
     <EntryBuilder
       entry={entry}
+      onDelete={handleDelete}
       onSave={handleSave}
     />
   );

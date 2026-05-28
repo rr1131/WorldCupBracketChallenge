@@ -2,7 +2,7 @@ from typing import Dict, List
 
 from .models import KnockoutMatch, KnockoutPick, KnockoutScoreBreakdown
 
-
+# Scoring System for Knockout Bracket 
 KNOCKOUT_STAGE_POINTS = {
     "R32": 2,
     "R16": 4,

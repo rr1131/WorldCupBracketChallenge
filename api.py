@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
@@ -10,11 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import create_database, get_db
+from app.live_sync import load_live_scoreboard_snapshot, start_espn_sync_poller
 from app.schemas import (
     AuthSessionOut,
     CreatePoolIn,
     EntryCreateIn,
     EntryOut,
+    EntrySimulationIn,
+    LiveScoreboardOut,
     EntryUpdateIn,
     LoginIn,
     PoolDetailOut,
@@ -32,6 +36,7 @@ from app.service import (
     delete_entry_for_owner,
     entries_locked,
     generate_knockout_preview_for_entry,
+    generate_knockout_preview_for_payload,
     get_entry_for_viewer,
     get_pool_detail_for_user,
     get_user_from_token,
@@ -40,13 +45,33 @@ from app.service import (
     list_pools_for_user,
     remove_entry_from_pool,
     score_entry_for_owner,
+    score_entry_for_payload,
+    serialize_manual_third_place_tiebreak,
     serialize_auth_session,
     update_entry_for_owner,
 )
+from app.knockout import ThirdPlaceAdvancementTiebreakRequired
 
 
-app = FastAPI(title="World Cup Bracket Challenge API")
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ANN201
+    """Initialize local persistence and start the optional ESPN poller."""
+    del app
+    create_database()
+    sync_poller = None
+    if settings.truth_provider == "espn_cached" and settings.espn_sync_enabled:
+        sync_poller = start_espn_sync_poller()
+    try:
+        yield
+    finally:
+        if sync_poller is not None:
+            sync_poller.stop()
+
+
+app = FastAPI(title="World Cup Bracket Challenge API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,13 +81,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.on_event("startup")
-def startup() -> None:
-    """Create tables on startup for local development and tests."""
-    create_database()
-
-
 def _set_session_cookie(response: Response, user_id: str) -> None:
     """Set the auth cookie for a signed-in user."""
     response.set_cookie(
@@ -70,7 +88,7 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         value=create_access_token(user_id),
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=settings.session_cookie_secure,
         max_age=settings.session_duration_hours * 60 * 60,
     )
 
@@ -94,6 +112,40 @@ def get_current_user(
 def _raise_service_error(error: ServiceError) -> None:
     """Re-raise a service-layer error as an HTTP exception."""
     raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+
+
+@app.post("/api/generate-knockout-bracket")
+def generate_knockout_bracket(payload: EntrySimulationIn) -> dict[str, Any]:
+    """Compatibility endpoint for the stateless web prototype builder."""
+    try:
+        return generate_knockout_preview_for_payload(payload.model_dump())
+    except ThirdPlaceAdvancementTiebreakRequired as error:
+        raise HTTPException(
+            status_code=400,
+            detail=serialize_manual_third_place_tiebreak(error),
+        ) from error
+    except ServiceError as error:
+        _raise_service_error(error)
+
+
+@app.post("/api/score-entry")
+def score_entry_payload(payload: EntrySimulationIn) -> dict[str, Any]:
+    """Compatibility scoring endpoint for the stateless web prototype builder."""
+    try:
+        return score_entry_for_payload(payload.model_dump())
+    except ThirdPlaceAdvancementTiebreakRequired as error:
+        raise HTTPException(
+            status_code=400,
+            detail=serialize_manual_third_place_tiebreak(error),
+        ) from error
+    except ServiceError as error:
+        _raise_service_error(error)
+
+
+@app.get("/api/live/scoreboard", response_model=LiveScoreboardOut)
+def live_scoreboard() -> dict[str, Any]:
+    """Return the latest cached live scoreboard snapshot for the browser."""
+    return load_live_scoreboard_snapshot()
 
 
 @app.post("/api/auth/register", response_model=AuthSessionOut)

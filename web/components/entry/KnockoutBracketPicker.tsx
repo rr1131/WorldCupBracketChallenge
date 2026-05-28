@@ -73,9 +73,9 @@ const RIGHT_LAYOUT: SlotPlacement[][] = [
 ];
 
 const DESKTOP_BRACKET_HEIGHT_CLASS = "h-[76vh] min-h-[680px]";
-const LEFT_SIDE_COLUMNS_CLASS = "grid-cols-[168px_144px_140px_124px]";
-const RIGHT_SIDE_COLUMNS_CLASS = "grid-cols-[124px_140px_144px_168px]";
-const CENTER_COLUMN_WIDTH_CLASS = "w-[176px]";
+const LEFT_SIDE_COLUMNS_CLASS = "grid-cols-[158px_140px_136px_120px]";
+const RIGHT_SIDE_COLUMNS_CLASS = "grid-cols-[120px_136px_140px_158px]";
+const CENTER_COLUMN_WIDTH_CLASS = "w-[168px]";
 
 function flattenBracket(baseBracket: KnockoutBracket) {
   return Object.fromEntries(
@@ -133,7 +133,7 @@ function TeamOption({
     return (
       <div
         className={[
-          "flex h-7 w-full items-center rounded-lg border border-white/8 bg-white/6 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-50/40",
+          "flex h-7 w-full items-center rounded-lg border border-[rgba(146,86,76,0.16)] bg-[#fff8f7] px-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9b7d77]",
           side === "left" ? "justify-start text-left" : "justify-end text-right",
         ].join(" ")}
       >
@@ -148,18 +148,18 @@ function TeamOption({
       onClick={() => onSelectWinner(slotId, team)}
       disabled={isDisabled}
       className={[
-        "flex h-7 w-full items-center gap-1.5 rounded-lg border px-2 transition",
+        "flex h-7 w-full items-center gap-1 rounded-lg border px-1.5 transition",
         side === "left" ? "justify-start text-left" : "justify-end text-right",
         isSelected
-          ? "border-amber-300 bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950 shadow-[0_10px_25px_rgba(245,158,11,0.28)]"
-          : "border-white/10 bg-[#0e3143] text-white hover:border-cyan-300/35 hover:bg-[#143c51]",
+          ? "border-[rgba(196,52,64,0.28)] bg-[linear-gradient(135deg,#fdeef0,#f7d7db)] text-[#611019] shadow-[0_10px_25px_rgba(142,31,41,0.14)]"
+          : "border-[rgba(146,86,76,0.14)] bg-white text-[#251a18] hover:border-[rgba(196,52,64,0.22)] hover:bg-[#fff4f3]",
       ].join(" ")}
     >
-      {side === "left" && <FlagIcon teamCode={team} className="h-3.5 w-5 rounded-sm" />}
+      {side === "left" && <FlagIcon teamCode={team} className="h-3.5 w-4.5 rounded-sm" />}
       <span className="truncate text-[10px] font-semibold uppercase tracking-[0.12em]">
         {getTeamMetadata(team).code}
       </span>
-      {side === "right" && <FlagIcon teamCode={team} className="h-3.5 w-5 rounded-sm" />}
+      {side === "right" && <FlagIcon teamCode={team} className="h-3.5 w-4.5 rounded-sm" />}
     </button>
   );
 }
@@ -182,35 +182,31 @@ function MatchNode({
   const roundName = getRoundForSlot(slotId);
   const connectorClass =
     side === "left"
-      ? "after:absolute after:right-[-12px] after:top-1/2 after:h-px after:w-3 after:bg-pink-400/70"
+      ? "after:absolute after:right-[-12px] after:top-1/2 after:h-px after:w-3 after:bg-[#d48a92]"
       : side === "right"
-        ? "before:absolute before:left-[-12px] before:top-1/2 before:h-px before:w-3 before:bg-pink-400/70"
+        ? "before:absolute before:left-[-12px] before:top-1/2 before:h-px before:w-3 before:bg-[#d48a92]"
         : "";
   const cardHeightClass =
     roundName === "R32"
-      ? "h-full min-h-[76px]"
+      ? "h-full min-h-[64px]"
       : roundName === "R16"
-        ? "h-[108px]"
+        ? "h-[98px]"
         : roundName === "QF"
-          ? "h-[98px]"
+          ? "h-[92px]"
           : roundName === "SF"
-            ? "h-[88px]"
-            : "h-[120px]";
+            ? "h-[84px]"
+            : "h-[104px]";
 
   return (
     <div className="relative flex h-full items-center">
       <div
         className={[
-          "relative flex w-full flex-col justify-center overflow-hidden rounded-[22px] border border-cyan-300/10 bg-[linear-gradient(180deg,#0a2535,#0f3143)] p-2 shadow-[0_14px_34px_rgba(2,6,23,0.42)]",
+          "relative flex w-full flex-col justify-center overflow-hidden rounded-[22px] border border-[rgba(146,86,76,0.16)] bg-[linear-gradient(180deg,#fffefe,#fff6f4)] p-1.5 shadow-[0_14px_34px_rgba(124,31,40,0.08)]",
           cardHeightClass,
           connectorClass,
         ].join(" ")}
       >
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/45">
-          {slotId}
-        </div>
-
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <TeamOption
             slotId={slotId}
             side={side === "right" ? "right" : "left"}
@@ -259,7 +255,7 @@ function BracketSide({
         {labels.map((label) => (
           <div
             key={label}
-            className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/55"
+            className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8e1f29]/70"
           >
             {label}
           </div>
@@ -358,22 +354,22 @@ export default function KnockoutBracketPicker({
   }, [bracketLookup, picksBySlot]);
 
   return (
-    <section className="rounded-[34px] border border-cyan-300/12 bg-[linear-gradient(135deg,#071c2e,#0b2740_48%,#061524)] p-6 text-white shadow-[0_40px_120px_rgba(2,6,23,0.55)] xl:relative xl:left-1/2 xl:w-[min(1480px,calc(100vw-2rem))] xl:max-w-none xl:-translate-x-1/2 xl:overflow-hidden">
+    <section className="rr-frame rounded-[34px] p-6 text-[#251a18] xl:relative xl:left-1/2 xl:w-[min(1480px,calc(100vw-2rem))] xl:max-w-none xl:-translate-x-1/2 xl:overflow-hidden">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300/75">
+          <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.28em]">
             Knockout Stage
           </div>
-          <h2 className="mt-2 text-3xl font-semibold text-white">
+          <h2 className="mt-2 text-3xl font-semibold text-[#251a18]">
             Fill the entire bracket on one screen
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-cyan-100/65">
+          <p className="rr-body mt-2 max-w-3xl text-sm leading-6">
             The outer edges hold the Round of 32, each winner pulls the next round into
             place, and the championship matchup meets in the center.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-amber-300/30 bg-amber-300/12 px-4 py-3 text-sm font-medium text-amber-100">
+        <div className="rr-badge rounded-2xl px-4 py-3 text-sm font-medium">
           {completion}
         </div>
       </div>
@@ -396,8 +392,8 @@ export default function KnockoutBracketPicker({
             DESKTOP_BRACKET_HEIGHT_CLASS,
           ].join(" ")}
         >
-          <div className="space-y-4">
-            <div className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-100/55">
+          <div className="-mt-1 space-y-3">
+            <div className="text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8e1f29]/70">
               Final
             </div>
 
@@ -410,22 +406,22 @@ export default function KnockoutBracketPicker({
               onSelectWinner={onSelectWinner}
             />
 
-            <div className="rounded-[28px] border border-amber-300/20 bg-[linear-gradient(180deg,rgba(247,222,136,0.16),rgba(247,222,136,0.06))] px-4 py-5 text-center shadow-[0_16px_40px_rgba(245,158,11,0.14)]">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/70">
+            <div className="rounded-[28px] border border-[rgba(196,52,64,0.18)] bg-[linear-gradient(180deg,#fff7f7,#f9e3e4)] px-3.5 py-4 text-center shadow-[0_16px_40px_rgba(142,31,41,0.1)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8e1f29]/72">
                 Winner
               </div>
               {champion ? (
-                <div className="mt-3 flex flex-col items-center gap-3">
-                  <FlagIcon teamCode={champion} className="h-10 w-14 rounded-lg" />
-                  <div className="text-2xl font-semibold tracking-[0.16em] text-white">
+                <div className="mt-2.5 flex flex-col items-center gap-2.5">
+                  <FlagIcon teamCode={champion} className="h-9 w-12 rounded-lg" />
+                  <div className="text-[1.35rem] font-semibold tracking-[0.14em] text-[#611019]">
                     {getTeamMetadata(champion).code}
                   </div>
-                  <div className="text-xs uppercase tracking-[0.24em] text-amber-100/70">
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-[#8e1f29]/72">
                     {getTeamMetadata(champion).name}
                   </div>
                 </div>
               ) : (
-                <div className="mt-3 text-sm text-cyan-100/45">Pick the final winner</div>
+                <div className="mt-3 text-sm text-[#9b7d77]">Pick the final winner</div>
               )}
             </div>
           </div>
@@ -443,14 +439,14 @@ export default function KnockoutBracketPicker({
       </div>
 
       <div className="space-y-6 xl:hidden">
-        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rr-badge rounded-2xl px-4 py-3 text-sm">
           The full no-scroll bracket is optimized for desktop widths. On smaller screens,
           the rounds stack for readability.
         </div>
 
         {Object.entries(derivedBracket).map(([roundName, matches]) => (
-          <div key={roundName} className="rounded-[24px] border border-cyan-300/10 bg-[#0b2435] p-4">
-            <div className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100/55">
+          <div key={roundName} className="rr-card rounded-[24px] p-4">
+            <div className="rr-kicker mb-4 text-xs font-semibold uppercase tracking-[0.24em]">
               {roundName}
             </div>
             <div className="grid gap-3">

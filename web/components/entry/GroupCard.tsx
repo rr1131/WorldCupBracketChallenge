@@ -28,13 +28,13 @@ export default function GroupCard({
   onChange,
 }: GroupCardProps) {
   return (
-    <div className="rounded-[30px] border border-amber-300/40 bg-[linear-gradient(160deg,rgba(7,27,45,0.98),rgba(18,59,82,0.96))] p-5 shadow-[0_32px_80px_rgba(15,23,42,0.2)]">
+    <div className="rr-card-accent rounded-[30px] p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/70">
+          <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
             Group {group.id}
           </div>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
+          <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">
             Lock in this quartet
           </h2>
         </div>

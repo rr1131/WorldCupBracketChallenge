@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
+import LiveMatchRail from "@/components/app/LiveMatchRail";
 import { useAppData } from "@/components/providers/AppDataProvider";
 import type { StoredEntry } from "@/lib/types";
 
@@ -13,6 +14,10 @@ function getEntryScore(entry: StoredEntry) {
   return entry.result?.total_points ?? entry.score_total ?? null;
 }
 
+function getEntryMax(entry: StoredEntry) {
+  return entry.max_possible_points ?? null;
+}
+
 export default function WorkspacePage() {
   const router = useRouter();
   const {
@@ -20,6 +25,7 @@ export default function WorkspacePage() {
     createEntry,
     createPool,
     currentUser,
+    deleteEntry,
     entries,
     isHydrated,
     isUserInPool,
@@ -28,6 +34,7 @@ export default function WorkspacePage() {
   const [tab, setTab] = useState<WorkspaceTab>("entries");
   const [newPoolName, setNewPoolName] = useState("");
   const [newPoolDescription, setNewPoolDescription] = useState("");
+  const [newPoolPassword, setNewPoolPassword] = useState("");
   const [poolError, setPoolError] = useState<string | null>(null);
 
   const userEntries = useMemo(
@@ -56,6 +63,7 @@ export default function WorkspacePage() {
     const outcome = createPool({
       name: newPoolName,
       description: newPoolDescription,
+      joinPassword: newPoolPassword,
     });
 
     if (!outcome.ok) {
@@ -66,25 +74,44 @@ export default function WorkspacePage() {
     setPoolError(null);
     setNewPoolName("");
     setNewPoolDescription("");
+    setNewPoolPassword("");
     setTab("pools");
     router.push(`/pools/${outcome.pool.id}`);
   }
 
+  function handleDeleteEntry(entryId: string) {
+    const confirmed = window.confirm(
+      "Delete this entry from your workspace? This also removes it from any pools it was in."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const outcome = deleteEntry(entryId);
+    if (!outcome.ok) {
+      window.alert(outcome.message);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#13385d_0%,#0b2442_34%,#06111d_70%,#040910_100%)] px-4 py-8 text-white sm:px-6">
+    <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,26,43,0.95),rgba(14,47,77,0.92))] p-6 shadow-[0_40px_120px_rgba(2,6,23,0.5)]">
+        <section className="rr-frame rounded-[32px] p-6">
           <AppHeader />
+          <div className="mt-6">
+            <LiveMatchRail />
+          </div>
 
           <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300/75">
+              <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.28em]">
                 Workspace
               </div>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[#251a18]">
                 {currentUser ? `${currentUser.name}'s control room` : "Your control room"}
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-cyan-100/72">
+              <p className="rr-body mt-3 max-w-3xl text-sm leading-7">
                 Build entries, drop them into pools, and open any pool to see the live
                 leaderboard and view submitted entries.
               </p>
@@ -94,13 +121,13 @@ export default function WorkspacePage() {
               type="button"
               onClick={handleCreateEntry}
               disabled={!isHydrated}
-              className="rounded-full bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rr-primary-btn rounded-full px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               Create New Entry
             </button>
           </div>
 
-          <div className="mt-8 inline-flex rounded-full border border-white/10 bg-white/6 p-1">
+          <div className="rr-tab-strip mt-8 inline-flex rounded-full p-1">
             {(["entries", "pools"] as const).map((value) => (
               <button
                 key={value}
@@ -109,8 +136,8 @@ export default function WorkspacePage() {
                 className={[
                   "rounded-full px-5 py-2 text-sm font-semibold capitalize transition",
                   tab === value
-                    ? "bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950"
-                    : "text-white/74 hover:text-white",
+                    ? "rr-tab-active"
+                    : "rr-tab-idle",
                 ].join(" ")}
               >
                 {value}
@@ -122,7 +149,7 @@ export default function WorkspacePage() {
         {tab === "entries" ? (
           <section className="grid gap-4 lg:grid-cols-2">
             {userEntries.length === 0 ? (
-              <div className="rounded-[28px] border border-white/10 bg-white/6 p-6 text-cyan-100/72">
+              <div className="rr-card-soft rounded-[28px] p-6 rr-body">
                 No entries yet. Create one to start the group-to-knockout flow.
               </div>
             ) : null}
@@ -130,23 +157,26 @@ export default function WorkspacePage() {
             {userEntries.map((entry) => (
               <article
                 key={entry.id}
-                className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)]"
+                className="rr-card rounded-[28px] p-6"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/55">
+                    <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.2em]">
                       {entry.status}
                     </div>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">{entry.entry_name}</h2>
-                    <div className="mt-2 text-sm text-cyan-100/60">
+                    <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">{entry.entry_name}</h2>
+                    <div className="rr-body mt-2 text-sm">
                       Updated {new Date(entry.updated_at).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-amber-300/24 bg-amber-300/10 px-4 py-3 text-right">
-                    <div className="text-xs uppercase tracking-[0.18em] text-amber-100/70">Score</div>
-                    <div className="mt-1 text-2xl font-semibold text-white">
+                  <div className="rr-score-card rounded-2xl px-4 py-3 text-right">
+                    <div className="text-xs uppercase tracking-[0.18em]">PTS / MAX</div>
+                    <div className="mt-1 text-2xl font-semibold text-[#8e1f29]">
                       {getEntryScore(entry) ?? "—"}
+                    </div>
+                    <div className="mt-1 text-xs text-[#8e1f29]/70">
+                      {getEntryMax(entry) ?? "—"}
                     </div>
                   </div>
                 </div>
@@ -163,24 +193,31 @@ export default function WorkspacePage() {
                         <Link
                           key={poolId}
                           href={`/pools/${poolId}`}
-                          className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-50/80"
+                          className="rr-secondary-btn rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
                         >
                           {pool.name}
                         </Link>
                       );
                     })
                   ) : (
-                    <div className="text-sm text-cyan-100/55">Not in any pools yet.</div>
+                    <div className="rr-body text-sm">Not in any pools yet.</div>
                   )}
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Link
                     href={`/entries/${entry.id}`}
-                    className="rounded-full bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-105"
+                    className="rr-primary-btn rounded-full px-4 py-2 text-sm font-semibold"
                   >
                     Open Entry
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteEntry(entry.id)}
+                    className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
+                  >
+                    Delete Entry
+                  </button>
 
                   {userPools
                     .filter((pool) => !entry.pool_ids.includes(pool.id))
@@ -189,7 +226,7 @@ export default function WorkspacePage() {
                         key={pool.id}
                         type="button"
                         onClick={() => addEntryToPool(entry.id, pool.id)}
-                        className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                        className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                       >
                         Add to {pool.name}
                       </button>
@@ -201,14 +238,14 @@ export default function WorkspacePage() {
         ) : (
           <section className="space-y-6">
             <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/75">
+              <div className="rr-card rounded-[28px] p-6">
+                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                   Create Pool
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-white">
+                <div className="mt-2 text-2xl font-semibold text-[#251a18]">
                   Start your own bracket competition
                 </div>
-                <div className="mt-3 text-sm leading-7 text-cyan-100/68">
+                <div className="rr-body mt-3 text-sm leading-7">
                   Make a pool, share the invite link, and let other users join before adding
                   their entries.
                 </div>
@@ -218,18 +255,25 @@ export default function WorkspacePage() {
                     value={newPoolName}
                     onChange={(event) => setNewPoolName(event.target.value)}
                     placeholder="Office Pool"
-                    className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-white outline-none transition placeholder:text-cyan-100/35 focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />
                   <textarea
                     value={newPoolDescription}
                     onChange={(event) => setNewPoolDescription(event.target.value)}
                     placeholder="A high-chaos pool for the office group chat."
                     rows={4}
-                    className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-white outline-none transition placeholder:text-cyan-100/35 focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="rr-input w-full rounded-2xl px-4 py-3 transition"
+                  />
+                  <input
+                    value={newPoolPassword}
+                    onChange={(event) => setNewPoolPassword(event.target.value)}
+                    placeholder="Optional shared password"
+                    type="password"
+                    className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />
 
                   {poolError ? (
-                    <div className="rounded-2xl border border-red-400/28 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                    <div className="rr-error rounded-2xl px-4 py-3 text-sm">
                       {poolError}
                     </div>
                   ) : null}
@@ -237,20 +281,20 @@ export default function WorkspacePage() {
                   <button
                     type="button"
                     onClick={handleCreatePool}
-                    className="rounded-full bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105"
+                    className="rr-primary-btn rounded-full px-5 py-3 text-sm font-semibold"
                   >
                     Create Pool
                   </button>
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100/60">
+              <div className="rr-card-soft rounded-[28px] p-6">
+                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                   Your pool workflow
                 </div>
-                <div className="mt-5 space-y-4 text-sm leading-7 text-cyan-100/72">
+                <div className="rr-body mt-5 space-y-4 text-sm leading-7">
                   <p>1. Create a pool and copy the invite link.</p>
-                  <p>2. Have another user open that share link and join the pool.</p>
+                  <p>2. Optionally add a shared password so only intended members can join.</p>
                   <p>3. Add your own entries into the pool once you&apos;re a member.</p>
                   <p>4. Open the pool page to compare leaderboard standings and inspect every entry.</p>
                 </div>
@@ -268,21 +312,24 @@ export default function WorkspacePage() {
                 <Link
                   key={pool.id}
                   href={`/pools/${pool.id}`}
-                  className={`rounded-[28px] border border-white/10 bg-[linear-gradient(155deg,rgba(8,26,43,0.96),rgba(17,59,82,0.88))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)] transition hover:-translate-y-0.5`}
+                  className="rr-card rounded-[28px] p-6 transition hover:-translate-y-0.5"
                 >
-                  <div className={`rounded-2xl bg-linear-to-r ${pool.accent} px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/82`}>
+                  <div className={`rounded-2xl bg-linear-to-r ${pool.accent} px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#6e1a22]`}>
                     {pool.name}
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-cyan-100/70">{pool.description}</p>
+                  <p className="rr-body mt-4 text-sm leading-7">{pool.description}</p>
+                  <div className="rr-body mt-2 text-xs uppercase tracking-[0.16em]">
+                    {pool.join_password ? "Password protected" : "Invite link only"}
+                  </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
-                      <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Entries</div>
-                      <div className="mt-2 text-3xl font-semibold text-white">{poolEntries.length}</div>
+                    <div className="rr-card-soft rounded-2xl px-4 py-4">
+                      <div className="rr-soft text-xs uppercase tracking-[0.18em]">Entries</div>
+                      <div className="mt-2 text-3xl font-semibold text-[#251a18]">{poolEntries.length}</div>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4">
-                      <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Leader</div>
-                      <div className="mt-2 text-xl font-semibold text-white">
+                    <div className="rr-card-soft rounded-2xl px-4 py-4">
+                      <div className="rr-soft text-xs uppercase tracking-[0.18em]">Leader</div>
+                      <div className="mt-2 text-xl font-semibold text-[#251a18]">
                         {leader ? leader.entry_name : "Open pool"}
                       </div>
                     </div>
@@ -292,7 +339,7 @@ export default function WorkspacePage() {
             })}
 
             {userPools.length === 0 ? (
-              <div className="rounded-[28px] border border-white/10 bg-white/6 p-6 text-cyan-100/72">
+              <div className="rr-card-soft rounded-[28px] p-6 rr-body">
                 You haven&apos;t joined any pools yet. Create one above or use an invite link.
               </div>
             ) : null}

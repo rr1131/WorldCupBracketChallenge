@@ -37,6 +37,7 @@ type LoginInput = {
 type CreatePoolInput = {
   name: string;
   description: string;
+  joinPassword: string;
 };
 
 type AppDataContextValue = {
@@ -49,11 +50,15 @@ type AppDataContextValue = {
   logoutUser: () => void;
   createEntry: () => StoredEntry | null;
   createPool: (input: CreatePoolInput) => { ok: true; pool: PoolRecord } | { ok: false; message: string };
+  deletePool: (poolId: string) => { ok: true } | { ok: false; message: string };
   joinPoolByInviteCode: (
-    inviteCode: string
+    inviteCode: string,
+    password?: string
   ) => { ok: true; pool: PoolRecord } | { ok: false; message: string };
   updateEntry: (entryId: string, updates: Partial<StoredEntry>) => void;
+  deleteEntry: (entryId: string) => { ok: true } | { ok: false; message: string };
   addEntryToPool: (entryId: string, poolId: string) => void;
+  removeEntryFromPool: (entryId: string, poolId: string) => void;
   getEntryById: (entryId: string) => StoredEntry | undefined;
   getPoolById: (poolId: string) => PoolRecord | undefined;
   getPoolByInviteCode: (inviteCode: string) => PoolRecord | undefined;
@@ -86,6 +91,7 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-atlantic", "pool-studio"],
       score_total: 418,
+      max_possible_points: 596,
       result: null,
     },
     {
@@ -99,6 +105,7 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-atlantic"],
       score_total: 402,
+      max_possible_points: 584,
       result: null,
     },
     {
@@ -112,6 +119,7 @@ function createSampleEntries(): StoredEntry[] {
       predictions: [],
       pool_ids: ["pool-studio"],
       score_total: 287,
+      max_possible_points: 548,
       result: null,
     },
   ];
@@ -129,10 +137,10 @@ function createInviteCode(name: string) {
 
 function pickPoolAccent(existingCount: number) {
   const accents = [
-    "from-cyan-400/25 to-sky-500/10",
-    "from-amber-300/25 to-orange-500/10",
-    "from-emerald-300/25 to-teal-500/10",
-    "from-rose-300/25 to-fuchsia-500/10",
+    "from-[#f7d8db] to-[#f2b8be]",
+    "from-[#f3c3c7] to-[#eaa0a8]",
+    "from-[#f8e2e4] to-[#f0c3c8]",
+    "from-[#efd0d4] to-[#e5a4ab]",
   ];
 
   return accents[existingCount % accents.length];
@@ -168,22 +176,24 @@ function createDefaultState(): PersistedAppState {
         id: "pool-atlantic",
         name: "Atlantic Table",
         description: "A sharper, higher-scoring pool with a few aggressive bracket styles.",
-        accent: "from-cyan-400/25 to-sky-500/10",
+        accent: "from-[#f7d8db] to-[#f2b8be]",
         invite_code: "ATLANTIC26",
         owner_id: "user-maya",
         owner_name: "Maya Chen",
         member_ids: ["user-maya", "user-luca"],
+        join_password: "",
         created_at: now,
       },
       {
         id: "pool-studio",
         name: "Studio League",
         description: "A smaller creative league where entries tend to diverge late in the knockout stage.",
-        accent: "from-amber-300/25 to-orange-500/10",
+        accent: "from-[#f3c3c7] to-[#eaa0a8]",
         invite_code: "STUDIO26",
         owner_id: "user-priya",
         owner_name: "Priya Nair",
         member_ids: ["user-priya", "user-maya"],
+        join_password: "studio26",
         created_at: now,
       },
     ],
@@ -197,6 +207,7 @@ function normalizeState(rawState: PersistedAppState): PersistedAppState {
     ...entry,
     predictions: entry.predictions ?? createBlankPredictions(),
     pool_ids: entry.pool_ids ?? [],
+    max_possible_points: entry.max_possible_points ?? null,
   }));
 
   const pools = (rawState.pools?.length ? rawState.pools : fallback.pools).map((pool, index) => {
@@ -219,6 +230,7 @@ function normalizeState(rawState: PersistedAppState): PersistedAppState {
         pool.member_ids ??
         fallbackPool?.member_ids ??
         [ownerId],
+      join_password: pool.join_password ?? fallbackPool?.join_password ?? "",
       created_at: pool.created_at ?? fallbackPool?.created_at ?? new Date().toISOString(),
     };
   });
@@ -382,6 +394,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const createPool = useCallback((input: CreatePoolInput) => {
     const name = input.name.trim();
     const description = input.description.trim();
+    const joinPassword = input.joinPassword.trim();
     let outcome:
       | { ok: true; pool: PoolRecord }
       | { ok: false; message: string } = { ok: false, message: "Unable to create pool." };
@@ -408,6 +421,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         owner_id: owner.id,
         owner_name: owner.name,
         member_ids: [owner.id],
+        join_password: joinPassword,
         created_at: new Date().toISOString(),
       };
 
@@ -416,6 +430,42 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return {
         ...prev,
         pools: [pool, ...prev.pools],
+      };
+    });
+
+    return outcome;
+  }, []);
+
+  const deletePool = useCallback((poolId: string) => {
+    let outcome: { ok: true } | { ok: false; message: string } = {
+      ok: false,
+      message: "Unable to delete pool.",
+    };
+
+    setState((prev) => {
+      const pool = prev.pools.find((candidate) => candidate.id === poolId);
+      if (!pool) {
+        outcome = { ok: false, message: "That pool was not found." };
+        return prev;
+      }
+
+      if (pool.owner_id !== prev.current_user_id) {
+        outcome = { ok: false, message: "Only the pool owner can delete this pool." };
+        return prev;
+      }
+
+      outcome = { ok: true };
+
+      return {
+        ...prev,
+        pools: prev.pools.filter((candidate) => candidate.id !== poolId),
+        entries: prev.entries.map((entry) => ({
+          ...entry,
+          pool_ids: entry.pool_ids.filter((candidate) => candidate !== poolId),
+          updated_at: entry.pool_ids.includes(poolId)
+            ? new Date().toISOString()
+            : entry.updated_at,
+        })),
       };
     });
 
@@ -435,6 +485,32 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           : entry
       ),
     }));
+  }, []);
+
+  const deleteEntry = useCallback((entryId: string) => {
+    let outcome: { ok: true } | { ok: false; message: string } = { ok: false, message: "Unable to delete entry." };
+
+    setState((prev) => {
+      const entry = prev.entries.find((candidate) => candidate.id === entryId);
+      if (!entry) {
+        outcome = { ok: false, message: "That entry was not found." };
+        return prev;
+      }
+
+      if (entry.owner_id !== prev.current_user_id) {
+        outcome = { ok: false, message: "You can only delete your own entries." };
+        return prev;
+      }
+
+      outcome = { ok: true };
+
+      return {
+        ...prev,
+        entries: prev.entries.filter((candidate) => candidate.id !== entryId),
+      };
+    });
+
+    return outcome;
   }, []);
 
   const addEntryToPool = useCallback((entryId: string, poolId: string) => {
@@ -461,8 +537,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const joinPoolByInviteCode = useCallback((inviteCode: string) => {
+  const removeEntryFromPool = useCallback((entryId: string, poolId: string) => {
+    setState((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => {
+        if (
+          entry.id !== entryId ||
+          entry.owner_id !== prev.current_user_id ||
+          !entry.pool_ids.includes(poolId)
+        ) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          pool_ids: entry.pool_ids.filter((candidate) => candidate !== poolId),
+          updated_at: new Date().toISOString(),
+        };
+      }),
+    }));
+  }, []);
+
+  const joinPoolByInviteCode = useCallback((inviteCode: string, password = "") => {
     const normalizedCode = inviteCode.trim().toUpperCase();
+    const normalizedPassword = password.trim();
     let outcome:
       | { ok: true; pool: PoolRecord }
       | { ok: false; message: string } = { ok: false, message: "Unable to join pool." };
@@ -480,6 +578,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       if (!pool) {
         outcome = { ok: false, message: "That invite link did not match a pool." };
+        return prev;
+      }
+
+      if (pool.join_password && pool.join_password !== normalizedPassword) {
+        outcome = { ok: false, message: "That pool requires the shared password to join." };
         return prev;
       }
 
@@ -552,9 +655,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       logoutUser,
       createEntry,
       createPool,
+      deletePool,
       joinPoolByInviteCode,
       updateEntry,
+      deleteEntry,
       addEntryToPool,
+      removeEntryFromPool,
       getEntryById,
       getPoolById,
       getPoolByInviteCode,
@@ -567,6 +673,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createEntry,
       createPool,
       currentUser,
+      deletePool,
+      deleteEntry,
       getEntryById,
       getPoolById,
       getPoolByInviteCode,
@@ -575,6 +683,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       joinPoolByInviteCode,
       loginUser,
       logoutUser,
+      removeEntryFromPool,
       registerUser,
       state.entries,
       state.pools,

@@ -1,4 +1,4 @@
-"""SQLAlchemy persistence models for users, entries, and pools."""
+"""SQLAlchemy persistence models for users, entries, pools, and live sync state."""
 
 from __future__ import annotations
 
@@ -112,3 +112,23 @@ class PoolEntry(Base):
 
     pool: Mapped["Pool"] = relationship(back_populates="entry_links")
     entry: Mapped["Entry"] = relationship(back_populates="pool_links")
+
+
+class TruthSyncState(Base):
+    """Cached ESPN truth snapshot and live scoreboard metadata."""
+
+    __tablename__ = "truth_sync_state"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider_name: Mapped[str] = mapped_column(String(32), default="espn_cached")
+    truth_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    scoreboard_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    truth_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(32), default="never_synced")
+    last_attempt_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_success_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

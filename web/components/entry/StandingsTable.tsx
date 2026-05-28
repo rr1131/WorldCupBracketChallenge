@@ -16,15 +16,15 @@ export default function StandingsTable({
   const standings = computeGroupStandings(tournament, groupId, predictions);
 
   return (
-    <div className="rounded-[24px] border border-[#193a4f]/12 bg-[linear-gradient(160deg,rgba(11,34,52,0.96),rgba(18,58,79,0.92))] p-4 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/70">
+    <div className="rr-card rounded-[24px] p-4 text-[#251a18]">
+      <div className="rr-kicker mb-3 text-xs font-semibold uppercase tracking-[0.22em]">
         Predicted standings
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/6">
+      <div className="overflow-hidden rounded-2xl border border-[rgba(146,86,76,0.14)] bg-[#fff8f7]">
         <table className="w-full text-xs">
-          <thead className="text-cyan-100/60">
-            <tr className="border-b border-white/10">
+          <thead className="text-[#8c7770]">
+            <tr className="border-b border-[rgba(146,86,76,0.12)]">
               <th className="px-2 py-2 text-left">Pos</th>
               <th className="px-2 py-2 text-left">Team</th>
               <th className="px-2 py-2 text-right">Pts</th>
@@ -35,7 +35,7 @@ export default function StandingsTable({
           </thead>
           <tbody>
             {standings.map((team, index) => (
-              <tr key={team.team} className="border-b border-white/6 text-cyan-50/90 last:border-b-0">
+              <tr key={team.team} className="border-b border-[rgba(146,86,76,0.08)] text-[#251a18] last:border-b-0">
                 <td className="px-2 py-2 font-semibold">{index + 1}</td>
                 <td className="px-2 py-2">
                   <TeamBadge teamCode={team.team} compact tone="dark" />
@@ -50,7 +50,7 @@ export default function StandingsTable({
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] text-cyan-100/55">
+      <p className="rr-soft mt-3 text-[11px]">
         Preview uses points, goal difference, goals scored, then alphabetical
         fallback.
       </p>

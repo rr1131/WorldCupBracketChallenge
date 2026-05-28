@@ -20,9 +20,9 @@ export default function TeamBadge({
 
   const toneClass =
     tone === "gold"
-      ? "border-amber-300/70 bg-[linear-gradient(135deg,#fff2bf,#f5c95e)] text-slate-950"
+      ? "border-[#d9b1b6] bg-[linear-gradient(135deg,#fdeef0,#f7d7db)] text-[#611019]"
       : tone === "dark"
-        ? "border-cyan-900/70 bg-[#0f2e3d] text-white"
+        ? "border-[#d7c0bb] bg-[#fff7f5] text-[#251a18]"
         : "border-slate-200 bg-white text-slate-950";
 
   const justifyClass = align === "right" ? "justify-end text-right" : "justify-start text-left";

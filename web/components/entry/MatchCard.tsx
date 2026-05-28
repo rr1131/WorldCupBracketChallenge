@@ -33,7 +33,7 @@ export default function MatchCard({
         <input
           type="number"
           min="0"
-          className="h-10 rounded-xl border border-slate-200 bg-white px-1 text-center text-sm font-semibold text-slate-950 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          className="rr-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
           value={prediction.home_score}
           onChange={(e) => onChange(match.id, "home_score", e.target.value)}
         />
@@ -41,7 +41,7 @@ export default function MatchCard({
         <input
           type="number"
           min="0"
-          className="h-10 rounded-xl border border-slate-200 bg-white px-1 text-center text-sm font-semibold text-slate-950 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          className="rr-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
           value={prediction.away_score}
           onChange={(e) => onChange(match.id, "away_score", e.target.value)}
         />

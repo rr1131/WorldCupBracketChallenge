@@ -20,6 +20,13 @@ def _parse_csv(value: str) -> Tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _parse_bool(value: str | None, *, default: bool) -> bool:
+    """Parse a permissive boolean environment variable."""
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _parse_lock_datetime(value: str | None) -> datetime | None:
     """Parse the entry lock timestamp when one is configured."""
     if not value:
@@ -42,9 +49,15 @@ class Settings:
     session_duration_hours: int
     cors_origins: Tuple[str, ...]
     tournament_path: Path
+    espn_mapping_path: Path
     truth_path: Path
+    truth_override_path: Path
     truth_provider: str
     entry_lock_at: datetime | None
+    session_cookie_secure: bool
+    espn_sync_enabled: bool
+    espn_poll_interval_seconds: int
+    espn_sync_stale_after_seconds: int
 
 
 @lru_cache(maxsize=1)
@@ -52,6 +65,8 @@ def get_settings() -> Settings:
     """Load and cache application settings from environment variables."""
     project_root = _project_root()
     cors_default = "http://localhost:3000,http://127.0.0.1:3000"
+    espn_mapping_default = project_root / "config" / "espn_mapping.json"
+    override_default = project_root / "config" / "truth" / "override.json"
 
     return Settings(
         database_url=os.getenv("DATABASE_URL", f"sqlite:///{project_root / 'worldcup.db'}"),
@@ -63,9 +78,19 @@ def get_settings() -> Settings:
         tournament_path=Path(
             os.getenv("TOURNAMENT_PATH", str(project_root / "config" / "tournament.json"))
         ),
+        espn_mapping_path=Path(
+            os.getenv("ESPN_MAPPING_PATH", str(espn_mapping_default))
+        ),
         truth_path=Path(
             os.getenv("TRUTH_PATH", str(project_root / "config" / "truth" / "woshisim.json"))
         ),
-        truth_provider=os.getenv("TRUTH_PROVIDER", "file"),
+        truth_override_path=Path(
+            os.getenv("TRUTH_OVERRIDE_PATH", str(override_default))
+        ),
+        truth_provider=os.getenv("TRUTH_PROVIDER", "espn_cached"),
         entry_lock_at=_parse_lock_datetime(os.getenv("ENTRY_LOCK_AT")),
+        session_cookie_secure=_parse_bool(os.getenv("SESSION_COOKIE_SECURE"), default=False),
+        espn_sync_enabled=_parse_bool(os.getenv("ESPN_SYNC_ENABLED"), default=True),
+        espn_poll_interval_seconds=int(os.getenv("ESPN_POLL_INTERVAL_SECONDS", "60")),
+        espn_sync_stale_after_seconds=int(os.getenv("ESPN_SYNC_STALE_AFTER_SECONDS", "300")),
     )

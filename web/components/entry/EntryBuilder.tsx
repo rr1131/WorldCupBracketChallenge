@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import GroupCard from "@/components/entry/GroupCard";
 import KnockoutBracketPicker from "@/components/entry/KnockoutBracketPicker";
-import SimulationResults from "@/components/entry/SimulationResults";
+import { buildApiUrl } from "@/lib/api";
 import type { StoredEntry } from "@/lib/types";
 import TeamBadge from "@/components/entry/TeamBadge";
 import tournament from "@/data/tournament.json";
@@ -18,13 +18,12 @@ import type {
   EntryPayload,
   KnockoutBracketPreviewResponse,
   MatchPrediction,
-  SimulatedScoreResponse,
   TournamentConfig,
 } from "@/lib/types";
 
 const typedTournament = tournament as TournamentConfig;
 
-type BuildPhase = "groups" | "knockout" | "results";
+type BuildPhase = "groups" | "knockout";
 
 type ManualThirdPlaceTiebreakDetail = {
   code: "manual_third_place_tiebreak_required";
@@ -36,6 +35,7 @@ type ManualThirdPlaceTiebreakDetail = {
 
 type EntryBuilderProps = {
   entry: StoredEntry;
+  onDelete?: () => void;
   onSave: (updates: Partial<StoredEntry>) => void;
 };
 
@@ -80,14 +80,10 @@ function toKnockoutLookup(entry: StoredEntry) {
   ) as KnockoutPickLookup;
 }
 
-export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
+export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderProps) {
   const groupEditorRef = useRef<HTMLElement | null>(null);
   const lastSavedSnapshotRef = useRef<string>("");
   const [phase, setPhase] = useState<BuildPhase>(() => {
-    if (entry.result) {
-      return "results";
-    }
-
     if (entry.knockout_preview) {
       return "knockout";
     }
@@ -104,7 +100,6 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
   const [knockoutPicksBySlot, setKnockoutPicksBySlot] = useState<KnockoutPickLookup>(() =>
     toKnockoutLookup(entry)
   );
-  const [result, setResult] = useState<SimulatedScoreResponse | null>(entry.result ?? null);
   const [uiError, setUiError] = useState<string | null>(null);
   const [manualThirdPlaceTiebreak, setManualThirdPlaceTiebreak] =
     useState<ManualThirdPlaceTiebreakDetail | null>(null);
@@ -189,9 +184,6 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
     );
   }, [knockoutPreview]);
 
-  const isBracketComplete =
-    knockoutPreview !== null && knockoutPicks.length === totalKnockoutMatches;
-
   const entryPayload: EntryPayload = useMemo(() => {
     return {
       entry_name: entryName || "unnamed-entry",
@@ -208,18 +200,16 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
       advancing_third_place_groups: resolvedAdvancingThirdPlaceGroups,
       knockout_picks: entryPayload.knockout_picks,
       knockout_preview: knockoutPreview,
-      result,
-      score_total: result?.total_points ?? entry.score_total ?? null,
-      status: (result ? "scored" : knockoutPreview ? "knockout" : "draft") as StoredEntry["status"],
+      result: null,
+      score_total: null,
+      status: (knockoutPreview ? "knockout" : "draft") as StoredEntry["status"],
     }),
     [
-      entry.score_total,
       entryName,
       entryPayload.knockout_picks,
       entryPayload.predictions,
       knockoutPreview,
       resolvedAdvancingThirdPlaceGroups,
-      result,
     ]
   );
 
@@ -277,7 +267,6 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
   function resetPostGroupStageState() {
     setKnockoutPreview(null);
     setKnockoutPicksBySlot({});
-    setResult(null);
     setManualThirdPlaceTiebreak(null);
     setSelectedThirdPlaceGroups([]);
     setUiError(null);
@@ -389,7 +378,6 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
         setUiError(detail.message);
         setKnockoutPreview(null);
         setKnockoutPicksBySlot({});
-        setResult(null);
         setPhase("groups");
         return null;
       }
@@ -429,7 +417,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
     try {
       setIsWorking(true);
       const data = await handleApiRequest<KnockoutBracketPreviewResponse>(
-        "http://127.0.0.1:8000/api/generate-knockout-bracket"
+        buildApiUrl("/api/generate-knockout-bracket")
       );
 
       if (!data) {
@@ -440,46 +428,12 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
       setKnockoutPicksBySlot((prev) =>
         sanitizeKnockoutPickLookup(data.predicted_bracket, prev)
       );
-      setResult(null);
       setPhase("knockout");
       setManualThirdPlaceTiebreak(null);
       setSelectedThirdPlaceGroups(data.advancing_third_place_groups ?? []);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown error while generating bracket.";
-      setUiError(message);
-    } finally {
-      setIsWorking(false);
-    }
-  }
-
-  async function scoreEntry() {
-    if (!knockoutPreview) {
-      setUiError("Generate the knockout bracket before scoring the entry.");
-      return;
-    }
-
-    if (!isBracketComplete) {
-      setUiError("Pick a winner for every knockout match before scoring the entry.");
-      return;
-    }
-
-    try {
-      setIsWorking(true);
-      setUiError(null);
-      const data = await handleApiRequest<SimulatedScoreResponse>(
-        "http://127.0.0.1:8000/api/score-entry"
-      );
-
-      if (!data) {
-        return;
-      }
-
-      setResult(data);
-      setPhase("results");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error while scoring entry.";
       setUiError(message);
     } finally {
       setIsWorking(false);
@@ -526,53 +480,54 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
     : "Knockout stage not built yet";
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#153b63_0%,#0b2442_30%,#081829_62%,#050d16_100%)] px-4 py-8 text-slate-950 sm:px-6">
+    <main className="rr-page min-h-screen px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,26,43,0.94),rgba(14,47,77,0.92))] p-6 text-white shadow-[0_40px_120px_rgba(2,6,23,0.5)] backdrop-blur">
+        <section className="rr-frame rounded-[32px] p-6 text-[#251a18] backdrop-blur">
           <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs font-semibold uppercase tracking-[0.34em] text-amber-300/80">
+                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.34em]">
                   Entry Builder
                 </div>
                 <Link
                   href="/workspace"
-                  className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/12"
+                  className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                 >
                   Back to Workspace
                 </Link>
               </div>
 
-              <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-white">
+              <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-[#251a18]">
                 Build the groups first, then advance into the knockout bracket.
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-cyan-100/70">
-                This entry auto-saves locally to your workspace as you build it.
+              <p className="rr-body mt-3 max-w-3xl text-sm leading-6">
+                This entry auto-saves locally to your workspace as you build it. Official points
+                will arrive automatically from live match results.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-cyan-100/70">
+                  <label className="rr-body mb-2 block text-sm font-medium">
                     Entry name
                   </label>
                   <input
-                    className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-white outline-none transition placeholder:text-cyan-100/35 focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    className="rr-input w-full rounded-2xl px-4 py-3 transition"
                     value={entryName}
                     onChange={(event) => updateEntryName(event.target.value)}
                     placeholder="alice"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
-                  <div className="text-sm text-cyan-100/55">Groups completed</div>
-                  <div className="mt-1 text-2xl font-semibold text-white">
+                <div className="rr-card-soft rounded-2xl px-4 py-3">
+                  <div className="rr-soft text-sm">Groups completed</div>
+                  <div className="mt-1 text-2xl font-semibold text-[#251a18]">
                     {completedGroupsCount} / {typedTournament.groups.length}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
-                  <div className="text-sm text-cyan-100/55">Matches filled</div>
-                  <div className="mt-1 text-2xl font-semibold text-white">
+                <div className="rr-card-soft rounded-2xl px-4 py-3">
+                  <div className="rr-soft text-sm">Matches filled</div>
+                  <div className="mt-1 text-2xl font-semibold text-[#251a18]">
                     {completedMatchesCount} / {typedTournament.matches.length}
                   </div>
                 </div>
@@ -585,7 +540,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                       type="button"
                       onClick={() => autofillGroupStage()}
                       disabled={isWorking}
-                      className="rounded-2xl border border-white/12 bg-white/8 px-5 py-3 font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Random Autofill Groups
                     </button>
@@ -593,7 +548,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                       type="button"
                       onClick={generateKnockoutBracket}
                       disabled={isWorking || !allGroupsCompleted}
-                      className="rounded-2xl bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-5 py-3 font-semibold text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rr-primary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isWorking ? "Building..." : "Fill Out Knockout Stage ->"}
                     </button>
@@ -605,7 +560,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                     <button
                       type="button"
                       onClick={() => setPhase("groups")}
-                      className="rounded-2xl border border-white/12 bg-white/8 px-5 py-3 font-semibold text-white transition hover:bg-white/12"
+                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold"
                     >
                       Back to Groups
                     </button>
@@ -613,73 +568,57 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                       type="button"
                       onClick={autofillKnockoutStage}
                       disabled={isWorking}
-                      className="rounded-2xl border border-white/12 bg-white/8 px-5 py-3 font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Random Autofill Bracket
                     </button>
-                    <button
-                      type="button"
-                      onClick={scoreEntry}
-                      disabled={isWorking || !isBracketComplete}
-                      className="rounded-2xl bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-5 py-3 font-semibold text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isWorking ? "Scoring..." : "Score Cumulative Entry"}
-                    </button>
                   </>
                 )}
 
-                {phase === "results" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setPhase("knockout")}
-                      className="rounded-2xl border border-white/12 bg-white/8 px-5 py-3 font-semibold text-white transition hover:bg-white/12"
-                    >
-                      Edit Knockout Picks
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPhase("groups")}
-                      className="rounded-2xl border border-white/12 bg-white/8 px-5 py-3 font-semibold text-white transition hover:bg-white/12"
-                    >
-                      Back to Groups
-                    </button>
-                  </>
-                )}
+                {onDelete ? (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold"
+                  >
+                    Delete Entry
+                  </button>
+                ) : null}
 
-                <div className="rounded-2xl border border-amber-300/40 bg-amber-300/12 px-4 py-3 text-sm text-amber-100">
+                <div className="rr-badge rounded-2xl px-4 py-3 text-sm">
                   {phase === "groups" ? "Group stage builder active" : knockoutStatusLabel}
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-amber-300/25 bg-[linear-gradient(160deg,rgba(247,222,136,0.18),rgba(228,173,53,0.14))] p-5">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-200/75">
+            <div className="rr-card-accent rounded-[28px] p-5">
+              <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                 Flow
               </div>
-              <div className="mt-4 space-y-4 text-sm leading-6 text-cyan-50/75">
+              <div className="rr-body mt-4 space-y-4 text-sm leading-6">
                 <p>1. Pick any group from the board and fill in all six group matches.</p>
                 <p>2. Completed groups turn green and drop you back onto the 12-group board.</p>
                 <p>
                   3. Once all 12 groups are complete, build the knockout stage and click the
                   winning side through every round.
                 </p>
+                <p>4. Entry scores update when official results come in, not from manual simulation.</p>
               </div>
             </div>
           </div>
 
           {uiError && (
-            <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/12 px-4 py-3 text-sm text-red-100">
+            <div className="rr-error mt-4 rounded-2xl px-4 py-3 text-sm">
               {uiError}
             </div>
           )}
         </section>
 
         {manualThirdPlaceTiebreak && phase === "groups" && (
-          <section className="rounded-[28px] border border-amber-200 bg-amber-50 p-6 shadow-[0_20px_60px_rgba(245,158,11,0.12)]">
+          <section className="rr-card-accent rounded-[28px] p-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                   Manual Tiebreak
                 </div>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">
@@ -692,19 +631,19 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-amber-300 bg-white px-4 py-3 text-sm text-amber-900">
+              <div className="rr-badge rounded-2xl px-4 py-3 text-sm">
                 {selectedThirdPlaceGroups.length} / {manualThirdPlaceTiebreak.slots_remaining} selected
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-amber-200 bg-white p-4">
+              <div className="rr-card rounded-2xl p-4">
                 <div className="text-sm font-semibold text-slate-900">Already locked in</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {manualThirdPlaceTiebreak.locked_group_ids.map((groupId) => (
                     <div
                       key={groupId}
-                      className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white"
+                      className="rounded-full bg-[#8e1f29] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white"
                     >
                       Group {groupId}
                     </div>
@@ -712,7 +651,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-amber-200 bg-white p-4">
+              <div className="rr-card rounded-2xl p-4">
                 <div className="text-sm font-semibold text-slate-900">Tied candidates</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {manualThirdPlaceTiebreak.candidate_group_ids.map((groupId) => {
@@ -731,8 +670,8 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                         className={[
                           "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
                           isSelected
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-900"
-                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-400 hover:bg-amber-100",
+                            ? "border-[rgba(196,52,64,0.26)] bg-[#fdeef0] text-[#611019]"
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-[rgba(196,52,64,0.28)] hover:bg-[#fdeef0]",
                           isDisabled ? "cursor-not-allowed opacity-50" : "",
                         ].join(" ")}
                       >
@@ -750,15 +689,15 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
           <>
             {selectedGroup ? (
               <section ref={groupEditorRef} className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/6 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.2)] backdrop-blur">
+                <div className="rr-card rounded-[28px] p-5 backdrop-blur">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-200/70">
+                    <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                       Group Editor
                     </div>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                    <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">
                       Group {selectedGroup.id}
                     </h2>
-                    <p className="mt-1 text-sm text-cyan-100/70">
+                    <p className="rr-body mt-1 text-sm">
                       Finish this group and you&apos;ll return to the 12-group board.
                     </p>
                   </div>
@@ -766,7 +705,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                   <button
                     type="button"
                     onClick={() => setSelectedGroupId(null)}
-                    className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+                    className="rr-secondary-btn rounded-2xl px-4 py-3 text-sm font-semibold"
                   >
                     Back to 12 Groups
                   </button>
@@ -778,7 +717,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                     onClick={() =>
                       autofillGroupStage(getMatchesForGroup(selectedGroup.id).map((match) => match.id))
                     }
-                    className="rounded-2xl border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+                    className="rr-secondary-btn rounded-2xl px-4 py-3 text-sm font-semibold"
                   >
                     Random Autofill This Group
                   </button>
@@ -793,17 +732,17 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                 />
               </section>
             ) : (
-              <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.94))] p-6 shadow-[0_32px_90px_rgba(2,6,23,0.45)] backdrop-blur">
+              <section className="rr-frame rounded-[32px] p-6 backdrop-blur">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-200/70">
+                    <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                       Group Board
                     </div>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                    <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">
                       Pick a group to edit
                     </h2>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-cyan-50/80">
+                  <div className="rr-inline-note rounded-2xl px-4 py-3 text-sm">
                     {completedGroupsCount} of {typedTournament.groups.length} groups complete
                   </div>
                 </div>
@@ -820,8 +759,8 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                         className={[
                           "rounded-[28px] border p-5 text-left transition shadow-[0_20px_50px_rgba(2,6,23,0.3)]",
                           progress.isComplete
-                            ? "border-emerald-300/40 bg-[linear-gradient(145deg,rgba(10,94,76,0.95),rgba(16,185,129,0.72))] hover:brightness-105"
-                            : "border-amber-300/25 bg-[linear-gradient(145deg,#fbe8a6,#e9b74e)] hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(245,158,11,0.28)]",
+                            ? "border-[rgba(196,52,64,0.22)] bg-[linear-gradient(145deg,#fff4f4,#f7d7db)] hover:brightness-105"
+                            : "border-[rgba(146,86,76,0.18)] bg-[linear-gradient(145deg,#fffdfc,#f8efec)] hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(124,31,40,0.12)]",
                         ].join(" ")}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -829,7 +768,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                             <div
                               className={[
                                 "text-xs font-semibold uppercase tracking-[0.18em]",
-                                progress.isComplete ? "text-emerald-50/75" : "text-slate-700/60",
+                                progress.isComplete ? "text-[#8e1f29]/80" : "text-slate-700/60",
                               ].join(" ")}
                             >
                               Group {group.id}
@@ -837,7 +776,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                             <div
                               className={[
                                 "mt-2 text-lg font-semibold",
-                                progress.isComplete ? "text-white" : "text-slate-950",
+                                progress.isComplete ? "text-[#251a18]" : "text-slate-950",
                               ].join(" ")}
                             >
                               Build this group
@@ -847,7 +786,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                             className={[
                               "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
                               progress.isComplete
-                                ? "bg-white/16 text-white"
+                                ? "bg-[#fdeef0] text-[#8e1f29]"
                                 : "bg-slate-950/8 text-slate-700",
                             ].join(" ")}
                           >
@@ -860,7 +799,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                             <TeamBadge
                               key={team}
                               teamCode={team}
-                              tone={progress.isComplete ? "dark" : "gold"}
+                              tone={progress.isComplete ? "gold" : "dark"}
                               compact
                             />
                           ))}
@@ -870,14 +809,14 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                           className={[
                             "mt-5 rounded-2xl border px-4 py-3",
                             progress.isComplete
-                              ? "border-white/10 bg-white/8"
+                              ? "border-[rgba(196,52,64,0.16)] bg-white/90"
                               : "border-black/8 bg-white/40",
                           ].join(" ")}
                         >
                           <div
                             className={[
                               "text-xs",
-                              progress.isComplete ? "text-emerald-50/70" : "text-slate-600",
+                              progress.isComplete ? "text-[#8e1f29]/75" : "text-slate-600",
                             ].join(" ")}
                           >
                             Matches completed
@@ -885,7 +824,7 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
                           <div
                             className={[
                               "mt-1 text-2xl font-semibold",
-                              progress.isComplete ? "text-white" : "text-slate-950",
+                              progress.isComplete ? "text-[#251a18]" : "text-slate-950",
                             ].join(" ")}
                           >
                             {progress.completedMatches} / {progress.totalMatches}
@@ -907,8 +846,6 @@ export default function EntryBuilder({ entry, onSave }: EntryBuilderProps) {
             onSelectWinner={updateKnockoutPick}
           />
         )}
-
-        {phase === "results" && result && <SimulationResults result={result} />}
       </div>
     </main>
   );

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import TeamBadge from "@/components/entry/TeamBadge";
-import SimulationResults from "@/components/entry/SimulationResults";
 import tournament from "@/data/tournament.json";
 import { deriveKnockoutBracket } from "@/lib/knockout";
 import { computeGroupStandings } from "@/lib/standings";
@@ -22,7 +21,7 @@ type EntryViewerProps = {
   canEdit?: boolean;
 };
 
-type ViewerTab = "overview" | "groups" | "knockout" | "score";
+type ViewerTab = "overview" | "groups" | "knockout";
 type KnockoutViewerRound = "R32" | "R16" | "QF" | "SF" | "FINAL";
 
 function toPredictionLookup(predictions: MatchPrediction[]) {
@@ -76,18 +75,18 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
   const roundMatches = knockoutBracket[activeRound] ?? [];
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#13385d_0%,#0b2442_34%,#06111d_70%,#040910_100%)] px-4 py-8 text-white sm:px-6">
+    <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,26,43,0.95),rgba(14,47,77,0.92))] p-6 shadow-[0_40px_120px_rgba(2,6,23,0.5)]">
+        <section className="rr-frame rounded-[32px] p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300/75">
+              <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.28em]">
                 {canEdit ? "Open Entry" : "View Entry"}
               </div>
-              <h1 className="mt-3 text-4xl font-semibold text-white">{entry.entry_name}</h1>
-              <p className="mt-3 text-base text-cyan-100/72">
-                Built by {entry.owner_name}. Toggle through groups, knockout picks, and the
-                score summary.
+              <h1 className="mt-3 text-4xl font-semibold text-[#251a18]">{entry.entry_name}</h1>
+              <p className="rr-body mt-3 text-base">
+                Built by {entry.owner_name}. Toggle through groups and knockout picks while live
+                scoring rolls in from official results.
               </p>
             </div>
 
@@ -95,14 +94,14 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
               {canEdit ? (
                 <Link
                   href={`/entries/${entry.id}`}
-                  className="rounded-full bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105"
+                  className="rr-primary-btn rounded-full px-5 py-3 text-sm font-semibold"
                 >
                   Edit Entry
                 </Link>
               ) : null}
               <Link
                 href="/workspace"
-                className="rounded-full border border-white/12 bg-white/8 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+                className="rr-secondary-btn rounded-full px-5 py-3 text-sm font-semibold"
               >
                 Back to Workspace
               </Link>
@@ -110,30 +109,33 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Status</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{entry.status}</div>
+            <div className="rr-card-soft rounded-2xl p-4">
+              <div className="rr-soft text-xs uppercase tracking-[0.18em]">Status</div>
+              <div className="mt-2 text-2xl font-semibold text-[#251a18]">{entry.status}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Score</div>
-              <div className="mt-2 text-2xl font-semibold text-white">
+            <div className="rr-card-soft rounded-2xl p-4">
+              <div className="rr-soft text-xs uppercase tracking-[0.18em]">Pts / Max</div>
+              <div className="mt-2 text-2xl font-semibold text-[#8e1f29]">
                 {entry.result?.total_points ?? entry.score_total ?? "—"}
               </div>
+              <div className="mt-1 text-sm text-[#8e1f29]/70">
+                {entry.max_possible_points ?? "—"}
+              </div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Pools</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{entry.pool_ids.length}</div>
+            <div className="rr-card-soft rounded-2xl p-4">
+              <div className="rr-soft text-xs uppercase tracking-[0.18em]">Pools</div>
+              <div className="mt-2 text-2xl font-semibold text-[#251a18]">{entry.pool_ids.length}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-cyan-100/55">Updated</div>
-              <div className="mt-2 text-base font-semibold text-white">
+            <div className="rr-card-soft rounded-2xl p-4">
+              <div className="rr-soft text-xs uppercase tracking-[0.18em]">Updated</div>
+              <div className="mt-2 text-base font-semibold text-[#251a18]">
                 {new Date(entry.updated_at).toLocaleDateString()}
               </div>
             </div>
           </div>
 
-          <div className="mt-8 inline-flex rounded-full border border-white/10 bg-white/6 p-1">
-            {(["overview", "groups", "knockout", "score"] as const).map((value) => (
+          <div className="rr-tab-strip mt-8 inline-flex rounded-full p-1">
+            {(["overview", "groups", "knockout"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -141,8 +143,8 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                 className={[
                   "rounded-full px-5 py-2 text-sm font-semibold capitalize transition",
                   tab === value
-                    ? "bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950"
-                    : "text-white/74 hover:text-white",
+                    ? "rr-tab-active"
+                    : "rr-tab-idle",
                 ].join(" ")}
               >
                 {value}
@@ -162,14 +164,14 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
               return (
                 <div
                   key={group.id}
-                  className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-5 shadow-[0_20px_60px_rgba(2,6,23,0.4)]"
+                  className="rr-card rounded-[28px] p-5"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/50">
+                      <div className="rr-soft text-xs font-semibold uppercase tracking-[0.18em]">
                         Group {group.id}
                       </div>
-                      <div className="mt-2 text-lg font-semibold text-white">
+                      <div className="mt-2 text-lg font-semibold text-[#251a18]">
                         {completedMatches} / 6 matches picked
                       </div>
                     </div>
@@ -188,8 +190,8 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
 
         {tab === "groups" ? (
           <section className="grid gap-6 xl:grid-cols-[0.34fr_0.66fr]">
-            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-5 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100/60">
+            <div className="rr-card rounded-[28px] p-5">
+              <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                 Groups
               </div>
               <div className="mt-4 grid gap-2">
@@ -201,8 +203,8 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                     className={[
                       "rounded-2xl border px-4 py-3 text-left transition",
                       selectedGroupId === group.id
-                        ? "border-amber-300/50 bg-amber-300/10 text-white"
-                        : "border-white/10 bg-white/6 text-cyan-100/76 hover:bg-white/10",
+                        ? "border-[rgba(196,52,64,0.24)] bg-[#fdeef0] text-[#611019]"
+                        : "border-[rgba(146,86,76,0.14)] bg-[#fff8f7] text-[#6b5752] hover:bg-[#fff2f1]",
                     ].join(" ")}
                   >
                     Group {group.id}
@@ -211,34 +213,34 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
+            <div className="rr-card rounded-[28px] p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/75">
+                  <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                     Group {selectedGroupId}
                   </div>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                  <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">
                     Group-stage picks
                   </h2>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-                  <div className="text-sm font-semibold text-white">Predicted standings</div>
+                <div className="rr-card-soft rounded-2xl p-4">
+                  <div className="text-sm font-semibold text-[#251a18]">Predicted standings</div>
                   <div className="mt-4 space-y-2">
                     {selectedStandings.map((team, index) => (
                       <div
                         key={team.team}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0c2438] px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-[rgba(146,86,76,0.14)] bg-white px-3 py-3"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-6 text-xs font-semibold uppercase text-cyan-100/55">
+                          <div className="rr-soft w-6 text-xs font-semibold uppercase">
                             {index + 1}
                           </div>
                           <TeamBadge teamCode={team.team} tone="dark" compact />
                         </div>
-                        <div className="text-right text-xs text-cyan-100/66">
+                        <div className="rr-body text-right text-xs">
                           <div>{team.points} pts</div>
                           <div>GD {team.goalDifference}</div>
                         </div>
@@ -247,19 +249,19 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-                  <div className="text-sm font-semibold text-white">Match picks</div>
+                <div className="rr-card-soft rounded-2xl p-4">
+                  <div className="text-sm font-semibold text-[#251a18]">Match picks</div>
                   <div className="mt-4 grid gap-3">
                     {selectedGroupMatches.map((match: Match) => {
                       const prediction = predictionsById[match.id];
                       return (
                         <div
                           key={match.id}
-                          className="rounded-2xl border border-white/10 bg-[#0c2438] p-4"
+                          className="rounded-2xl border border-[rgba(146,86,76,0.14)] bg-white p-4"
                         >
                           <div className="flex items-center justify-between gap-4">
                             <TeamBadge teamCode={match.home_team} tone="dark" compact />
-                            <div className="rounded-xl border border-amber-300/24 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-white">
+                            <div className="rr-score-card rounded-xl px-4 py-2 text-sm font-semibold">
                               {prediction?.home_score ?? "—"} : {prediction?.away_score ?? "—"}
                             </div>
                             <TeamBadge teamCode={match.away_team} tone="dark" compact align="right" />
@@ -275,18 +277,18 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
         ) : null}
 
         {tab === "knockout" ? (
-          <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
+          <section className="rr-card rounded-[28px] p-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/75">
+                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
                   Knockout Stage
                 </div>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
+                <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">
                   Knockout picks by round
                 </h2>
               </div>
 
-              <div className="inline-flex rounded-full border border-white/10 bg-white/6 p-1">
+              <div className="rr-tab-strip inline-flex rounded-full p-1">
                 {availableRounds.map((roundName) => (
                   <button
                     key={roundName}
@@ -295,8 +297,8 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                     className={[
                       "rounded-full px-4 py-2 text-sm font-semibold transition",
                       activeRound === roundName
-                        ? "bg-[linear-gradient(135deg,#f7de88,#e4ad35)] text-slate-950"
-                        : "text-white/74 hover:text-white",
+                        ? "rr-tab-active"
+                        : "rr-tab-idle",
                     ].join(" ")}
                   >
                     {roundName}
@@ -314,9 +316,9 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                 return (
                   <div
                     key={match.slot_id}
-                    className="rounded-[24px] border border-white/10 bg-[#0c2438] p-5"
+                    className="rr-card-soft rounded-[24px] p-5"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/50">
+                    <div className="rr-soft text-xs font-semibold uppercase tracking-[0.18em]">
                       {match.slot_id}
                     </div>
                     <div className="mt-4 space-y-3">
@@ -327,8 +329,8 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                             className={[
                               "rounded-2xl border p-2",
                               selectedWinner === team
-                                ? "border-amber-300/40 bg-amber-300/12"
-                                : "border-white/10 bg-white/6",
+                                ? "border-[rgba(196,52,64,0.24)] bg-[#fdeef0]"
+                                : "border-[rgba(146,86,76,0.14)] bg-white",
                             ].join(" ")}
                           >
                             <TeamBadge teamCode={team} tone={selectedWinner === team ? "gold" : "dark"} compact />
@@ -336,7 +338,7 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
                         ) : (
                           <div
                             key={`${match.slot_id}-tbd`}
-                            className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 text-sm text-cyan-100/50"
+                            className="rr-inline-note rounded-2xl px-4 py-4 text-sm"
                           >
                             Awaiting prior winner
                           </div>
@@ -348,7 +350,7 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
               })}
 
               {roundMatches.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-6 text-sm text-cyan-100/60">
+                <div className="rr-inline-note rounded-2xl px-4 py-6 text-sm">
                   This entry has not generated knockout picks yet.
                 </div>
               ) : null}
@@ -356,15 +358,6 @@ export default function EntryViewer({ entry, canEdit = false }: EntryViewerProps
           </section>
         ) : null}
 
-        {tab === "score" ? (
-          entry.result ? (
-            <SimulationResults result={entry.result} />
-          ) : (
-            <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(8,26,43,0.96),rgba(17,59,82,0.9))] p-6 text-cyan-100/70 shadow-[0_20px_60px_rgba(2,6,23,0.4)]">
-              This entry has not been fully scored yet.
-            </section>
-          )
-        ) : null}
       </div>
     </main>
   );

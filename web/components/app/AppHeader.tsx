@@ -30,7 +30,7 @@ export default function AppHeader({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <Link href="/" className="text-sm font-semibold uppercase tracking-[0.34em] text-cyan-100/75">
+      <Link href="/" className="text-sm font-semibold uppercase tracking-[0.34em] rr-kicker">
         World Cup Bracket Challenge
       </Link>
 
@@ -38,7 +38,7 @@ export default function AppHeader({
         {showWorkspaceLink && currentUser ? (
           <Link
             href="/workspace"
-            className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+            className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
           >
             Workspace
           </Link>
@@ -48,7 +48,7 @@ export default function AppHeader({
           <button
             type="button"
             onClick={handleCreateEntry}
-            className="rounded-full bg-[linear-gradient(135deg,#f7de88,#e4ad35)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-105"
+            className="rr-primary-btn rounded-full px-4 py-2 text-sm font-semibold"
           >
             Create Entry
           </button>
@@ -61,14 +61,14 @@ export default function AppHeader({
               logoutUser();
               router.push("/");
             }}
-            className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+            className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
           >
             Log out
           </button>
         ) : (
           <Link
             href="/register"
-            className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+            className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
           >
             Login
           </Link>

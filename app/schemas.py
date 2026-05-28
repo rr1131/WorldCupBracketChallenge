@@ -54,6 +54,15 @@ class EntryUpdateIn(BaseModel):
     knockout_picks: list[KnockoutPickIn] | None = None
 
 
+class EntrySimulationIn(BaseModel):
+    """Stateless entry payload used by the prototype web builder."""
+
+    entry_name: str
+    predictions: list[PredictionIn]
+    advancing_third_place_groups: list[str] | None = None
+    knockout_picks: list[KnockoutPickIn] | None = None
+
+
 class CreatePoolIn(BaseModel):
     """Pool creation payload."""
 
@@ -127,3 +136,32 @@ class PoolDetailOut(PoolSummaryOut):
 
     is_locked: bool
     entries: list[dict[str, Any]]
+
+
+class LiveFixtureOut(BaseModel):
+    """Serialized live match row for the public scoreboard feed."""
+
+    fixture_id: str
+    kind: str
+    group_id: str | None = None
+    round_name: str | None = None
+    kickoff_at: str | None = None
+    home_team: str | None = None
+    away_team: str | None = None
+    home_score: int | None = None
+    away_score: int | None = None
+    status: str
+    display_status: str
+    winner_team: str | None = None
+    espn_event_id: str | None = None
+    updated_at: str | None = None
+
+
+class LiveScoreboardOut(BaseModel):
+    """Serialized top-level live scoreboard payload."""
+
+    provider: str
+    sync_status: str
+    synced_at: str | None = None
+    stale: bool
+    fixtures: list[LiveFixtureOut]

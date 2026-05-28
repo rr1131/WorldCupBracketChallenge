@@ -46,10 +46,10 @@ export default function SimulationResults({
   }, [result]);
 
   return (
-    <section className="rounded-[28px] border border-emerald-200/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(236,253,245,0.92))] p-6 shadow-[0_30px_90px_rgba(16,185,129,0.12)]">
+    <section className="rr-frame rounded-[28px] p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">
+          <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.28em]">
             Scorecard
           </div>
           <h2 className="mt-2 text-2xl font-semibold text-slate-950">
@@ -78,8 +78,8 @@ export default function SimulationResults({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-900 bg-slate-950 p-4 text-white">
-          <div className="text-sm text-slate-400">Total points</div>
+        <div className="rounded-2xl border border-[rgba(196,52,64,0.18)] bg-[linear-gradient(180deg,#b72632,#8e1f29)] p-4 text-white">
+          <div className="text-sm text-red-100/80">Total points</div>
           <div className="mt-1 text-2xl font-bold">{result.total_points}</div>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function SimulationResults({
               their exact path through the bracket differs.
             </p>
           </div>
-          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="rr-inline-note rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
             {result.knockout_scores.length} scored picks
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function SimulationResults({
                         <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                           {score.stage_name}
                         </div>
-                        <div className="rounded-lg bg-slate-950 px-2.5 py-1.5 text-xs font-semibold text-white">
+                        <div className="rounded-lg bg-[#8e1f29] px-2.5 py-1.5 text-xs font-semibold text-white">
                           {score.points} pts
                         </div>
                       </div>
@@ -286,7 +286,7 @@ export default function SimulationResults({
                           </div>
                         </div>
 
-                        <div className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">
+                        <div className="rounded-lg bg-[#8e1f29] px-3 py-2 text-sm font-semibold text-white">
                           {matchScore.points} pts
                         </div>
                       </div>

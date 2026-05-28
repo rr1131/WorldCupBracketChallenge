@@ -1,6 +1,9 @@
-"""Tournament-domain dataclasses used by scoring and validation."""
+"""Tournament-domain dataclasses used by scoring, validation, and live sync."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List, Optional
 
 
@@ -20,6 +23,18 @@ class Match:
     group_id: str
     home_team: str
     away_team: str
+    kickoff_at: datetime | None = None
+    espn_event_id: str | None = None
+
+
+@dataclass(frozen=True)
+class KnockoutFixture:
+    """Metadata describing a knockout-stage fixture slot."""
+
+    slot_id: str
+    round_name: str
+    kickoff_at: datetime | None = None
+    espn_event_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +52,7 @@ class TournamentConfig:
 
     groups: Dict[str, Group]
     matches: Dict[str, Match]
+    knockout_fixtures: Dict[str, KnockoutFixture]
 
 
 @dataclass(frozen=True)
@@ -170,3 +186,32 @@ class ScoredEntry:
     total_points: int
     exact_order_count: int
     top_two_bonus_count: int
+
+
+@dataclass(frozen=True)
+class LiveFixtureState:
+    """A normalized live-fixture payload for browser scoreboards."""
+
+    fixture_id: str
+    kind: str
+    group_id: str | None
+    round_name: str | None
+    kickoff_at: datetime | None
+    home_team: str | None
+    away_team: str | None
+    home_score: int | None
+    away_score: int | None
+    status: str
+    display_status: str
+    winner_team: str | None
+    espn_event_id: str | None
+    updated_at: datetime | None
+
+
+@dataclass(frozen=True)
+class EspnFixtureMapping:
+    """An ESPN mapping entry keyed by tournament fixture id."""
+
+    fixture_id: str
+    kickoff_at: datetime | None = None
+    espn_event_id: str | None = None

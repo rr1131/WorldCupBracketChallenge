@@ -1,3 +1,19 @@
+Metadata-Version: 2.4
+Name: worldcup-bracket-challenge
+Version: 0.1.0
+Summary: World Cup pick'em and bracket challenge backend
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: pydantic>=2.8
+Requires-Dist: email-validator>=2.0
+Requires-Dist: SQLAlchemy>=2.0
+Requires-Dist: PyJWT>=2.8
+Requires-Dist: pwdlib>=0.2
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+
 # WorldCupBracketChallenge
 
 World Cup bracket challenge / pick'em app for `ratracefantasy.com`.
@@ -22,7 +38,6 @@ For local testing, the safest setup is to run both the backend and the frontend.
 - [`api.py`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/api.py): FastAPI app entrypoint
 - [`app/`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/app): backend domain logic, models, scoring, CLI helpers
 - [`config/`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/config): tournament and truth data
-- [`config/espn_mapping.json`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/config/espn_mapping.json): checked-in ESPN kickoff and event-id mapping
 - [`testing/`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/testing): Python tests
 - [`web/`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/web): Next.js UI
 
@@ -45,7 +60,7 @@ Notes:
 
 - By default the app creates a local SQLite database at `worldcup.db`
 - Default CORS origins are `http://localhost:3000` and `http://127.0.0.1:3000`
-- `SESSION_COOKIE_SECURE` defaults to `false` for local HTTP development
+- `pyproject.toml` does not yet list every backend/runtime test dependency, so the explicit `pip install` command above is the most reliable local setup today
 
 ### Frontend
 
@@ -112,18 +127,6 @@ Rescore all saved entries:
 python -m app.main rescore-all
 ```
 
-Run one ESPN truth sync:
-
-```bash
-python -m app.main sync-truth
-```
-
-Validate current ESPN mapping coverage:
-
-```bash
-python -m app.main validate-espn-mapping
-```
-
 ## Runtime Configuration
 
 The backend reads configuration from environment variables.
@@ -135,43 +138,17 @@ The backend reads configuration from environment variables.
 - `SESSION_DURATION_HOURS`: defaults to `168`
 - `CORS_ORIGINS`: defaults to `http://localhost:3000,http://127.0.0.1:3000`
 - `TOURNAMENT_PATH`: defaults to `config/tournament.json`
-- `ESPN_MAPPING_PATH`: defaults to `config/espn_mapping.json`
 - `TRUTH_PATH`: defaults to `config/truth/woshisim.json`
-- `TRUTH_OVERRIDE_PATH`: defaults to `config/truth/override.json`
 - `TRUTH_PROVIDER`: defaults to `file`
 - `ENTRY_LOCK_AT`: optional ISO timestamp for globally locking edits
-- `SESSION_COOKIE_SECURE`: defaults to `false`
-- `ESPN_SYNC_ENABLED`: defaults to `false`
-- `ESPN_POLL_INTERVAL_SECONDS`: defaults to `60`
-- `ESPN_SYNC_STALE_AFTER_SECONDS`: defaults to `300`
 
 Example:
 
 ```bash
 export JWT_SECRET="replace-me"
-export TRUTH_PROVIDER="espn_cached"
-export ESPN_SYNC_ENABLED="true"
-export SESSION_COOKIE_SECURE="true"
 export ENTRY_LOCK_AT="2026-06-11T18:00:00Z"
 uvicorn api:app --reload
 ```
-
-## ESPN Workflow
-
-The ESPN integration does not use an API key in the current implementation. It relies on the public `site.api.espn.com` scoreboard endpoint family and a checked-in mapping file.
-
-Stage 1 before launch:
-
-- Populate the group-stage rows in [`config/espn_mapping.json`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/config/espn_mapping.json) with real `kickoff_at` and `espn_event_id` values
-- Leave knockout rows `M73`-`M104` empty until ESPN publishes them
-- Run `python -m app.main validate-espn-mapping`
-- Start the backend with `TRUTH_PROVIDER=espn_cached` and `ESPN_SYNC_ENABLED=true`
-
-Stage 2 after the group stage:
-
-- Update the knockout rows in [`config/espn_mapping.json`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/config/espn_mapping.json)
-- Redeploy the backend
-- Run `python -m app.main sync-truth`
 
 ## Frontend Notes
 
@@ -191,5 +168,3 @@ The builder flow lives primarily in:
 - Some files under `testing/` are placeholders right now, so Python test coverage is incomplete
 - The frontend still mixes local-only state with backend-backed scoring requests
 - The builder currently posts to hard-coded backend URLs on `127.0.0.1:8000`
-- The frontend is not yet wired to the live ESPN scoreboard endpoint
-- Production deployment still assumes one backend instance owns the ESPN poller

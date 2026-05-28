@@ -1,6 +1,6 @@
-"""Validation helpers for tournament and entry data."""
+"""Validation helpers for tournament, ESPN mapping, and entry data."""
 
-from .models import TournamentConfig, TruthConfig, EntryConfig, KnockoutMatch
+from .models import EspnFixtureMapping, TournamentConfig, TruthConfig, EntryConfig, KnockoutMatch
 
 
 class ValidationError(Exception):
@@ -30,6 +30,21 @@ def validate_tournament_config(cfg: TournamentConfig) -> None:
         if match.home_team not in group_teams or match.away_team not in group_teams:
             raise ValidationError(f"Match {match.id} contains teams not in group {match.group_id}")
 
+        if match.home_team == match.away_team:
+            raise ValidationError(f"Match {match.id} cannot pair a team against itself")
+
+    seen_knockout_slots = set()
+    for slot_id, fixture in cfg.knockout_fixtures.items():
+        if slot_id in seen_knockout_slots:
+            raise ValidationError(f"Duplicate knockout fixture found: {slot_id}")
+        seen_knockout_slots.add(slot_id)
+
+        if fixture.slot_id != slot_id:
+            raise ValidationError(f"Knockout fixture key mismatch for {slot_id}")
+
+        if not fixture.round_name.strip():
+            raise ValidationError(f"Knockout fixture {slot_id} must have a round name")
+
 
 def validate_truth_config(tournament: TournamentConfig, truth: TruthConfig) -> None:
     """Validate a partial or complete truth snapshot."""
@@ -54,6 +69,25 @@ def validate_truth_config(tournament: TournamentConfig, truth: TruthConfig) -> N
             tournament=tournament,
             advancing_third_place_groups=truth.advancing_third_place_groups,
             label="truth",
+        )
+
+    if truth.knockout_results is not None:
+        for slot_id, winner_team in truth.knockout_results.items():
+            if not winner_team:
+                raise ValidationError(f"Empty knockout winner for slot {slot_id}")
+
+
+def validate_espn_mapping_config(
+    tournament: TournamentConfig,
+    mapping: dict[str, EspnFixtureMapping],
+) -> None:
+    """Validate the set of known ESPN fixture mappings."""
+    known_fixture_ids = set(tournament.matches.keys()) | set(tournament.knockout_fixtures.keys())
+
+    unknown_fixture_ids = sorted(set(mapping.keys()) - known_fixture_ids)
+    if unknown_fixture_ids:
+        raise ValidationError(
+            f"ESPN mapping contains unknown fixture ids: {unknown_fixture_ids}"
         )
 
 

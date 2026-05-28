@@ -35,6 +35,7 @@ from .security import decode_access_token, hash_password, verify_password
 from .standings import compute_all_group_standings, compute_group_standings
 from .truth import get_truth_provider
 from .validator import (
+    ValidationError,
     validate_entry_config,
     validate_knockout_picks,
     validate_knockout_winner_lookup,
@@ -280,6 +281,63 @@ def _build_complete_entry(entry: Entry) -> EntryConfig:
     )
     validate_entry_config(tournament, complete_entry)
     return complete_entry
+
+
+def _build_complete_entry_from_payload(payload: dict[str, Any]) -> EntryConfig:
+    """Convert a stateless request payload into a complete scoreable entry config."""
+    tournament = load_tournament()
+    entry_name = str(payload.get("entry_name") or "").strip()
+    if not entry_name:
+        raise ServiceError("Entry name cannot be blank.")
+
+    predictions: dict[str, MatchResult] = {}
+    for item in payload.get("predictions") or []:
+        match_id = str(item.get("match_id") or "")
+        home_score = item.get("home_score")
+        away_score = item.get("away_score")
+        if not isinstance(home_score, int) or not isinstance(away_score, int):
+            raise ServiceError("Finish all group-stage match picks before continuing.")
+        predictions[match_id] = MatchResult(
+            match_id=match_id,
+            home_score=home_score,
+            away_score=away_score,
+        )
+
+    knockout_picks = None
+    if payload.get("knockout_picks"):
+        knockout_picks = [
+            KnockoutPick(
+                round_name=pick["round_name"],
+                slot_id=pick["slot_id"],
+                winner_team=pick["winner_team"],
+            )
+            for pick in payload["knockout_picks"]
+        ]
+
+    complete_entry = EntryConfig(
+        entry_name=entry_name,
+        predictions=predictions,
+        advancing_third_place_groups=payload.get("advancing_third_place_groups"),
+        knockout_picks=knockout_picks,
+    )
+    try:
+        validate_entry_config(tournament, complete_entry)
+    except ValidationError as error:
+        raise ServiceError(str(error)) from error
+    return complete_entry
+
+
+def serialize_manual_third_place_tiebreak(
+    error: ThirdPlaceAdvancementTiebreakRequired,
+) -> dict[str, Any]:
+    """Serialize a manual third-place tiebreak prompt for the frontend."""
+    return {
+        "code": "manual_third_place_tiebreak_required",
+        "message": str(error),
+        "locked_group_ids": error.locked_group_ids,
+        "candidate_group_ids": error.candidate_group_ids,
+        "slots_remaining": error.slots_remaining,
+    }
 
 
 def _finalized_group_ids(truth: TruthConfig) -> set[str]:
@@ -674,6 +732,34 @@ def get_pool_detail_for_user(session: Session, user: User, pool_id: str) -> dict
     }
 
 
+def generate_knockout_preview_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Generate a knockout preview without requiring a persisted entry."""
+    if entries_locked():
+        raise ServiceError("Entries are locked and can no longer be changed.", status_code=403)
+
+    tournament = load_tournament()
+    complete_entry = _build_complete_entry_from_payload(payload)
+    predicted_standings = compute_all_group_standings(
+        tournament=tournament,
+        results_by_match_id=complete_entry.predictions,
+        group_overrides={},
+    )
+    predicted_pick_lookup = picks_to_lookup(complete_entry.knockout_picks)
+    predicted_bracket = generate_full_knockout_bracket(
+        predicted_standings=predicted_standings,
+        knockout_pick_lookup=predicted_pick_lookup,
+        advancing_third_place_groups=complete_entry.advancing_third_place_groups,
+    )
+    validate_knockout_picks(complete_entry, predicted_bracket)
+
+    return {
+        "entry_name": complete_entry.entry_name,
+        "predicted_standings": _serialize_standings(predicted_standings),
+        "predicted_bracket": _serialize_bracket(predicted_bracket),
+        "advancing_third_place_groups": complete_entry.advancing_third_place_groups,
+    }
+
+
 def generate_knockout_preview_for_entry(session: Session, user: User, entry_id: str) -> dict[str, Any]:
     """Generate and persist the knockout preview for an owned entry."""
     if entries_locked():
@@ -713,6 +799,85 @@ def generate_knockout_preview_for_entry(session: Session, user: User, entry_id: 
     entry.status = "knockout"
     session.commit()
     return payload
+
+
+def score_entry_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Score an entry payload without requiring a persisted entry."""
+    if entries_locked():
+        raise ServiceError("Entries are locked and can no longer be rescored manually.", status_code=403)
+
+    tournament = load_tournament()
+    truth = load_truth_snapshot()
+    complete_entry = _build_complete_entry_from_payload(payload)
+    predicted_standings = compute_all_group_standings(
+        tournament=tournament,
+        results_by_match_id=complete_entry.predictions,
+        group_overrides={},
+    )
+    actual_standings = compute_all_group_standings(
+        tournament=tournament,
+        results_by_match_id=truth.results,
+        group_overrides=truth.group_overrides,
+    )
+    scored_entry = score_group_stage_entry(
+        tournament=tournament,
+        entry=complete_entry,
+        truth_results=truth.results,
+        predicted_standings=predicted_standings,
+        actual_standings=actual_standings,
+    )
+
+    predicted_pick_lookup = picks_to_lookup(complete_entry.knockout_picks)
+    predicted_bracket = generate_full_knockout_bracket(
+        predicted_standings=predicted_standings,
+        knockout_pick_lookup=predicted_pick_lookup,
+        advancing_third_place_groups=complete_entry.advancing_third_place_groups,
+    )
+    actual_bracket = generate_full_knockout_bracket(
+        predicted_standings=actual_standings,
+        knockout_pick_lookup=truth.knockout_results or {},
+        advancing_third_place_groups=truth.advancing_third_place_groups,
+    )
+    validate_knockout_picks(complete_entry, predicted_bracket)
+    validate_knockout_winner_lookup(
+        winner_lookup=truth.knockout_results or {},
+        bracket=actual_bracket,
+        label="truth",
+    )
+
+    total_knockout_matches = sum(len(matches) for matches in predicted_bracket.values())
+    if len(predicted_pick_lookup) != total_knockout_matches:
+        raise ServiceError("Pick a winner for every knockout match before scoring the entry.")
+
+    knockout_scores = score_knockout_picks(
+        predicted_bracket=predicted_bracket,
+        actual_bracket=actual_bracket,
+        predicted_pick_lookup=predicted_pick_lookup,
+        actual_winner_lookup=truth.knockout_results or {},
+    )
+    scored_entry = build_scored_entry(
+        entry_name=scored_entry.entry_name,
+        match_scores=scored_entry.match_scores,
+        group_scores=scored_entry.group_scores,
+        knockout_scores=knockout_scores,
+    )
+    return {
+        "entry_name": scored_entry.entry_name,
+        "match_points": scored_entry.match_points,
+        "standing_points": scored_entry.standing_points,
+        "knockout_points": scored_entry.knockout_points,
+        "total_points": scored_entry.total_points,
+        "exact_order_count": scored_entry.exact_order_count,
+        "top_two_bonus_count": scored_entry.top_two_bonus_count,
+        "group_scores": [asdict(item) for item in scored_entry.group_scores],
+        "match_scores": [asdict(item) for item in scored_entry.match_scores],
+        "knockout_scores": [asdict(item) for item in scored_entry.knockout_scores],
+        "predicted_standings": _serialize_standings(predicted_standings),
+        "actual_standings": _serialize_standings(actual_standings),
+        "predicted_bracket": _serialize_bracket(predicted_bracket),
+        "actual_bracket": _serialize_bracket(actual_bracket),
+        "knockout_warning": None,
+    }
 
 
 def score_entry_for_owner(session: Session, user: User, entry_id: str) -> dict[str, Any]:

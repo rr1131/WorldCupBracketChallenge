@@ -15,6 +15,14 @@ export type TournamentConfig = {
   matches: Match[];
 };
 
+export type LiveFixtureStatus =
+  | "scheduled"
+  | "in_progress"
+  | "final"
+  | "postponed"
+  | "canceled"
+  | "unknown";
+
 export type MatchPrediction = {
   match_id: string;
   home_score: number | "";
@@ -139,6 +147,7 @@ export type StoredEntry = {
   result?: SimulatedScoreResponse | null;
   pool_ids: string[];
   score_total?: number | null;
+  max_possible_points?: number | null;
 };
 
 export type PoolRecord = {
@@ -150,7 +159,33 @@ export type PoolRecord = {
   owner_id: string;
   owner_name: string;
   member_ids: string[];
+  join_password?: string;
   created_at: string;
+};
+
+export type LiveFixture = {
+  fixture_id: string;
+  kind: string;
+  group_id?: string | null;
+  round_name?: string | null;
+  kickoff_at?: string | null;
+  home_team?: string | null;
+  away_team?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  status: LiveFixtureStatus;
+  display_status: string;
+  winner_team?: string | null;
+  espn_event_id?: string | null;
+  updated_at?: string | null;
+};
+
+export type LiveScoreboard = {
+  provider: string;
+  sync_status: string;
+  synced_at?: string | null;
+  stale: boolean;
+  fixtures: LiveFixture[];
 };
 
 export type PersistedAppState = {
