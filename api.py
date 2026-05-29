@@ -90,15 +90,21 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         key=settings.session_cookie_name,
         value=create_access_token(user_id),
         httponly=True,
-        samesite="lax",
+        samesite=settings.session_cookie_samesite,
         secure=settings.session_cookie_secure,
         max_age=settings.session_duration_hours * 60 * 60,
+        path="/",
     )
 
 
 def _clear_session_cookie(response: Response) -> None:
     """Clear the auth cookie."""
-    response.delete_cookie(settings.session_cookie_name)
+    response.delete_cookie(
+        settings.session_cookie_name,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        path="/",
+    )
 
 
 def get_current_user(
