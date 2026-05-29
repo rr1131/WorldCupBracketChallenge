@@ -9,21 +9,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import tournament from "@/data/tournament.json";
-import { maxTotalPoints } from "@/lib/maxPoints";
-import type {
-  AuthUser,
-  MatchPrediction,
-  PersistedAppState,
-  PoolRecord,
-  RegisteredUser,
-  StoredEntry,
-  TournamentConfig,
-} from "@/lib/types";
-
-const typedTournament = tournament as TournamentConfig;
-const STORAGE_KEY = "world-cup-bracket-challenge-app-state-v1";
-const TOTAL_MAX_POINTS = maxTotalPoints(typedTournament);
+import { ApiError, requestApi } from "@/lib/api";
+import type { AuthUser, MatchPrediction, PoolDetail, PoolRecord, StoredEntry } from "@/lib/types";
 
 type RegisterInput = {
   name: string;
@@ -42,27 +29,47 @@ type CreatePoolInput = {
   joinPassword: string;
 };
 
+type ActionResult = { ok: true } | { ok: false; message: string };
+type CreatePoolResult = { ok: true; pool: PoolRecord } | { ok: false; message: string };
+type JoinPoolResult = { ok: true; pool: PoolRecord } | { ok: false; message: string };
+
+type ApiAuthSession = {
+  current_user: {
+    id: string;
+    username: string;
+    email: string;
+  };
+  is_locked: boolean;
+  lock_at: string | null;
+};
+
+type ApiPoolSummary = Omit<PoolRecord, "accent">;
+type ApiPoolDetail = Omit<PoolDetail, "accent" | "entries"> & {
+  entries: StoredEntry[];
+};
+
 type AppDataContextValue = {
   isHydrated: boolean;
   currentUser: AuthUser | null;
   entries: StoredEntry[];
   pools: PoolRecord[];
-  registerUser: (input: RegisterInput) => { ok: true } | { ok: false; message: string };
-  loginUser: (input: LoginInput) => { ok: true } | { ok: false; message: string };
-  logoutUser: () => void;
-  createEntry: () => StoredEntry | null;
-  createPool: (input: CreatePoolInput) => { ok: true; pool: PoolRecord } | { ok: false; message: string };
-  deletePool: (poolId: string) => { ok: true } | { ok: false; message: string };
-  joinPoolByInviteCode: (
-    inviteCode: string,
-    password?: string
-  ) => { ok: true; pool: PoolRecord } | { ok: false; message: string };
-  updateEntry: (entryId: string, updates: Partial<StoredEntry>) => void;
-  deleteEntry: (entryId: string) => { ok: true } | { ok: false; message: string };
-  addEntryToPool: (entryId: string, poolId: string) => void;
-  removeEntryFromPool: (entryId: string, poolId: string) => void;
+  registerUser: (input: RegisterInput) => Promise<ActionResult>;
+  loginUser: (input: LoginInput) => Promise<ActionResult>;
+  logoutUser: () => Promise<void>;
+  createEntry: () => Promise<StoredEntry | null>;
+  createPool: (input: CreatePoolInput) => Promise<CreatePoolResult>;
+  deletePool: (poolId: string) => Promise<ActionResult>;
+  joinPoolByInviteCode: (inviteCode: string, password?: string) => Promise<JoinPoolResult>;
+  updateEntry: (entryId: string, updates: Partial<StoredEntry>) => Promise<StoredEntry | null>;
+  deleteEntry: (entryId: string) => Promise<ActionResult>;
+  addEntryToPool: (entryId: string, poolId: string) => Promise<ActionResult>;
+  removeEntryFromPool: (entryId: string, poolId: string) => Promise<ActionResult>;
+  loadEntryById: (entryId: string) => Promise<StoredEntry | null>;
+  loadPoolDetail: (poolId: string) => Promise<PoolDetail | null>;
+  loadPoolByInviteCode: (inviteCode: string) => Promise<PoolRecord | null>;
   getEntryById: (entryId: string) => StoredEntry | undefined;
   getPoolById: (poolId: string) => PoolRecord | undefined;
+  getPoolDetailById: (poolId: string) => PoolDetail | undefined;
   getPoolByInviteCode: (inviteCode: string) => PoolRecord | undefined;
   isUserInPool: (poolId: string, userId?: string | null) => boolean;
   canEditEntry: (entry: StoredEntry | undefined) => boolean;
@@ -70,600 +77,518 @@ type AppDataContextValue = {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-function createBlankPredictions(): MatchPrediction[] {
-  return typedTournament.matches.map((match) => ({
-    match_id: match.id,
-    home_score: "",
-    away_score: "",
-  }));
+function poolAccentSeed(value: string) {
+  return value.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-function createSampleEntries(): StoredEntry[] {
-  const now = new Date().toISOString();
-
-  return [
-    {
-      id: "entry-maya-aurora",
-      owner_id: "user-maya",
-      owner_name: "Maya Chen",
-      entry_name: "Aurora Press",
-      created_at: now,
-      updated_at: now,
-      status: "scored",
-      predictions: [],
-      pool_ids: ["pool-atlantic", "pool-studio"],
-      score_total: 418,
-      max_possible_points: 612,
-      result: null,
-    },
-    {
-      id: "entry-luca-sunset",
-      owner_id: "user-luca",
-      owner_name: "Luca Gomez",
-      entry_name: "Sunset Counter",
-      created_at: now,
-      updated_at: now,
-      status: "scored",
-      predictions: [],
-      pool_ids: ["pool-atlantic"],
-      score_total: 402,
-      max_possible_points: 600,
-      result: null,
-    },
-    {
-      id: "entry-priya-studio",
-      owner_id: "user-priya",
-      owner_name: "Priya Nair",
-      entry_name: "Studio Eleven",
-      created_at: now,
-      updated_at: now,
-      status: "knockout",
-      predictions: [],
-      pool_ids: ["pool-studio"],
-      score_total: 287,
-      max_possible_points: 564,
-      result: null,
-    },
-  ];
-}
-
-function normalizeEntryMaxPoints(entry: StoredEntry) {
-  if (entry.max_possible_points === TOTAL_MAX_POINTS) {
-    return TOTAL_MAX_POINTS;
-  }
-
-  if (entry.max_possible_points === 740) {
-    return TOTAL_MAX_POINTS;
-  }
-
-  return entry.max_possible_points ?? null;
-}
-
-function createInviteCode(name: string) {
-  const slug = name
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "")
-    .slice(0, 6);
-
-  return `${slug || "POOL"}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
-
-function pickPoolAccent(existingCount: number) {
+function pickPoolAccent(value: string, index = 0) {
   const accents = [
     "from-[#f7d8db] to-[#f2b8be]",
     "from-[#f3c3c7] to-[#eaa0a8]",
     "from-[#f8e2e4] to-[#f0c3c8]",
     "from-[#efd0d4] to-[#e5a4ab]",
   ];
-
-  return accents[existingCount % accents.length];
+  return accents[(poolAccentSeed(value) + index) % accents.length];
 }
 
-function createDefaultState(): PersistedAppState {
-  const now = new Date().toISOString();
+function normalizeUser(session: ApiAuthSession["current_user"]): AuthUser {
   return {
-    current_user_id: null,
-    users: [
-      {
-        id: "user-maya",
-        name: "Maya Chen",
-        email: "maya@example.com",
-        password: "demo1234",
-      },
-      {
-        id: "user-luca",
-        name: "Luca Gomez",
-        email: "luca@example.com",
-        password: "demo1234",
-      },
-      {
-        id: "user-priya",
-        name: "Priya Nair",
-        email: "priya@example.com",
-        password: "demo1234",
-      },
-    ],
-    entries: createSampleEntries(),
-    pools: [
-      {
-        id: "pool-atlantic",
-        name: "Atlantic Table",
-        description: "A sharper, higher-scoring pool with a few aggressive bracket styles.",
-        accent: "from-[#f7d8db] to-[#f2b8be]",
-        invite_code: "ATLANTIC26",
-        owner_id: "user-maya",
-        owner_name: "Maya Chen",
-        member_ids: ["user-maya", "user-luca"],
-        join_password: "",
-        created_at: now,
-      },
-      {
-        id: "pool-studio",
-        name: "Studio League",
-        description: "A smaller creative league where entries tend to diverge late in the knockout stage.",
-        accent: "from-[#f3c3c7] to-[#eaa0a8]",
-        invite_code: "STUDIO26",
-        owner_id: "user-priya",
-        owner_name: "Priya Nair",
-        member_ids: ["user-priya", "user-maya"],
-        join_password: "studio26",
-        created_at: now,
-      },
-    ],
+    id: session.id,
+    name: session.username,
+    email: session.email,
   };
 }
 
-function normalizeState(rawState: PersistedAppState): PersistedAppState {
-  const fallback = createDefaultState();
-  const users = rawState.users?.length ? rawState.users : fallback.users;
-  const entries = (rawState.entries?.length ? rawState.entries : fallback.entries).map((entry) => ({
+function normalizePrediction(prediction: MatchPrediction): MatchPrediction {
+  return {
+    ...prediction,
+    home_score: prediction.home_score ?? "",
+    away_score: prediction.away_score ?? "",
+  };
+}
+
+function normalizeEntry(entry: StoredEntry): StoredEntry {
+  return {
     ...entry,
-    predictions: entry.predictions ?? createBlankPredictions(),
+    predictions: (entry.predictions ?? []).map((prediction) =>
+      normalizePrediction(prediction as MatchPrediction)
+    ),
     pool_ids: entry.pool_ids ?? [],
-    max_possible_points: normalizeEntryMaxPoints(entry),
-  }));
-
-  const pools = (rawState.pools?.length ? rawState.pools : fallback.pools).map((pool, index) => {
-    const fallbackPool = fallback.pools.find((candidate) => candidate.id === pool.id);
-    const ownerId =
-      pool.owner_id ?? fallbackPool?.owner_id ?? users[0]?.id ?? "unknown-user";
-    const ownerName =
-      pool.owner_name ??
-      fallbackPool?.owner_name ??
-      users.find((user) => user.id === ownerId)?.name ??
-      "Pool Owner";
-
-    return {
-      ...pool,
-      accent: pool.accent ?? pickPoolAccent(index),
-      invite_code: pool.invite_code ?? createInviteCode(pool.name),
-      owner_id: ownerId,
-      owner_name: ownerName,
-      member_ids:
-        pool.member_ids ??
-        fallbackPool?.member_ids ??
-        [ownerId],
-      join_password: pool.join_password ?? fallbackPool?.join_password ?? "",
-      created_at: pool.created_at ?? fallbackPool?.created_at ?? new Date().toISOString(),
-    };
-  });
-
-  const currentUserId =
-    rawState.current_user_id && users.some((user) => user.id === rawState.current_user_id)
-      ? rawState.current_user_id
-      : null;
-
-  return {
-    current_user_id: currentUserId,
-    users,
-    entries,
-    pools,
+    advancing_third_place_groups: entry.advancing_third_place_groups ?? undefined,
+    knockout_picks: entry.knockout_picks ?? undefined,
+    knockout_preview: entry.knockout_preview ?? null,
+    result: entry.result ?? null,
+    max_possible_points: entry.max_possible_points ?? null,
   };
 }
 
-function generateId(prefix: string) {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
+function decoratePool(pool: ApiPoolSummary, index = 0): PoolRecord {
+  return {
+    ...pool,
+    accent: pickPoolAccent(pool.id, index),
+  };
+}
+
+function decoratePoolDetail(detail: ApiPoolDetail, accent?: string): PoolDetail {
+  return {
+    ...detail,
+    accent: accent ?? pickPoolAccent(detail.id),
+    entries: detail.entries.map(normalizeEntry),
+  };
+}
+
+function toApiUpdates(updates: Partial<StoredEntry>) {
+  const payload: Record<string, unknown> = {};
+
+  if ("entry_name" in updates) {
+    payload.entry_name = updates.entry_name;
   }
 
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  if ("predictions" in updates) {
+    payload.predictions = updates.predictions?.map((prediction) => ({
+      match_id: prediction.match_id,
+      home_score: prediction.home_score === "" ? null : prediction.home_score,
+      away_score: prediction.away_score === "" ? null : prediction.away_score,
+    }));
+  }
+
+  if ("advancing_third_place_groups" in updates) {
+    payload.advancing_third_place_groups = updates.advancing_third_place_groups ?? null;
+  }
+
+  if ("knockout_picks" in updates) {
+    payload.knockout_picks = updates.knockout_picks ?? null;
+  }
+
+  return payload;
+}
+
+function toFriendlyError(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  return fallback;
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistedAppState>(createDefaultState);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [entries, setEntries] = useState<StoredEntry[]>([]);
+  const [entryCache, setEntryCache] = useState<Record<string, StoredEntry>>({});
+  const [pools, setPools] = useState<PoolRecord[]>([]);
+  const [poolDetails, setPoolDetails] = useState<Record<string, PoolDetail>>({});
+  const [invitePools, setInvitePools] = useState<Record<string, PoolRecord>>({});
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setState(normalizeState(JSON.parse(raw) as PersistedAppState));
+  const syncEntries = useCallback((nextEntries: StoredEntry[]) => {
+    setEntries(nextEntries);
+    setEntryCache((prev) => {
+      const next = { ...prev };
+      for (const entry of nextEntries) {
+        next[entry.id] = entry;
       }
-    } catch {
-      setState(createDefaultState());
+      return next;
+    });
+  }, []);
+
+  const syncPools = useCallback((nextPools: PoolRecord[]) => {
+    setPools(nextPools);
+    setPoolDetails((prev) => {
+      const next = { ...prev };
+      for (const pool of nextPools) {
+        if (next[pool.id]) {
+          next[pool.id] = {
+            ...next[pool.id],
+            ...pool,
+            accent: pool.accent,
+          };
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const refreshEntries = useCallback(async () => {
+    const response = await requestApi<StoredEntry[]>("/api/entries");
+    const normalized = response.map(normalizeEntry);
+    syncEntries(normalized);
+    return normalized;
+  }, [syncEntries]);
+
+  const refreshPools = useCallback(async () => {
+    const response = await requestApi<ApiPoolSummary[]>("/api/pools");
+    const normalized = response.map((pool, index) => decoratePool(pool, index));
+    syncPools(normalized);
+    return normalized;
+  }, [syncPools]);
+
+  const bootstrapSession = useCallback(async () => {
+    try {
+      const session = await requestApi<ApiAuthSession>("/api/auth/me");
+      setCurrentUser(normalizeUser(session.current_user));
+      await Promise.all([refreshEntries(), refreshPools()]);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) {
+        console.error(error);
+      }
+      setCurrentUser(null);
+      setEntries([]);
+      setEntryCache({});
+      setPools([]);
+      setPoolDetails({});
     } finally {
       setIsHydrated(true);
     }
-  }, []);
+  }, [refreshEntries, refreshPools]);
 
   useEffect(() => {
-    if (!isHydrated) {
-      return;
+    void bootstrapSession();
+  }, [bootstrapSession]);
+
+  const registerUser = useCallback(async (input: RegisterInput): Promise<ActionResult> => {
+    const name = input.name.trim();
+    const email = input.email.trim().toLowerCase();
+    const password = input.password.trim();
+
+    if (!name || !email || !password) {
+      return { ok: false, message: "Fill in name, email, and password." };
     }
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [isHydrated, state]);
+    try {
+      const session = await requestApi<ApiAuthSession>("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          username: name,
+          email,
+          password,
+        }),
+      });
+      setCurrentUser(normalizeUser(session.current_user));
+      await Promise.all([refreshEntries(), refreshPools()]);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not create your account.") };
+    }
+  }, [refreshEntries, refreshPools]);
 
-  const currentUser = useMemo(() => {
-    const user = state.users.find((candidate) => candidate.id === state.current_user_id);
-    if (!user) {
+  const loginUser = useCallback(async (input: LoginInput): Promise<ActionResult> => {
+    const email = input.email.trim().toLowerCase();
+    const password = input.password.trim();
+
+    if (!email || !password) {
+      return { ok: false, message: "Enter your email and password." };
+    }
+
+    try {
+      const session = await requestApi<ApiAuthSession>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setCurrentUser(normalizeUser(session.current_user));
+      await Promise.all([refreshEntries(), refreshPools()]);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not log you in.") };
+    }
+  }, [refreshEntries, refreshPools]);
+
+  const logoutUser = useCallback(async () => {
+    try {
+      await requestApi<{ ok: true }>("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCurrentUser(null);
+      setEntries([]);
+      setEntryCache({});
+      setPools([]);
+      setPoolDetails({});
+      setInvitePools({});
+    }
+  }, []);
+
+  const createEntry = useCallback(async () => {
+    try {
+      const created = normalizeEntry(
+        await requestApi<StoredEntry>("/api/entries", {
+          method: "POST",
+          body: JSON.stringify({}),
+        })
+      );
+      setEntries((prev) => [created, ...prev]);
+      setEntryCache((prev) => ({ ...prev, [created.id]: created }));
+      return created;
+    } catch (error) {
+      console.error(error);
       return null;
     }
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-    };
-  }, [state.current_user_id, state.users]);
-
-  const registerUser = useCallback((input: RegisterInput) => {
-    const email = input.email.trim().toLowerCase();
-
-    if (!input.name.trim() || !email || !input.password.trim()) {
-      return { ok: false as const, message: "Fill in name, email, and password." };
-    }
-
-    let outcome: { ok: true } | { ok: false; message: string } = { ok: true };
-
-    setState((prev) => {
-      const alreadyExists = prev.users.some((user) => user.email.toLowerCase() === email);
-      if (alreadyExists) {
-        outcome = { ok: false, message: "That email is already registered." };
-        return prev;
-      }
-
-      const nextUser: RegisteredUser = {
-        id: generateId("user"),
-        name: input.name.trim(),
-        email,
-        password: input.password,
-      };
-
-      return {
-        ...prev,
-        current_user_id: nextUser.id,
-        users: [...prev.users, nextUser],
-      };
-    });
-
-    return outcome;
   }, []);
 
-  const loginUser = useCallback((input: LoginInput) => {
-    const email = input.email.trim().toLowerCase();
-    let outcome: { ok: true } | { ok: false; message: string } = { ok: true };
-
-    setState((prev) => {
-      const user = prev.users.find(
-        (candidate) =>
-          candidate.email.toLowerCase() === email && candidate.password === input.password
-      );
-
-      if (!user) {
-        outcome = { ok: false, message: "Email or password was incorrect." };
-        return prev;
-      }
-
-      return {
-        ...prev,
-        current_user_id: user.id,
-      };
-    });
-
-    return outcome;
-  }, []);
-
-  const logoutUser = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      current_user_id: null,
-    }));
-  }, []);
-
-  const createEntry = useCallback(() => {
-    let createdEntry: StoredEntry | null = null;
-
-    setState((prev) => {
-      const owner = prev.users.find((user) => user.id === prev.current_user_id);
-      if (!owner) {
-        createdEntry = null;
-        return prev;
-      }
-
-      const now = new Date().toISOString();
-      const ownedEntriesCount = prev.entries.filter((entry) => entry.owner_id === owner.id).length;
-      createdEntry = {
-        id: generateId("entry"),
-        owner_id: owner.id,
-        owner_name: owner.name,
-        entry_name: `Entry ${ownedEntriesCount + 1}`,
-        created_at: now,
-        updated_at: now,
-        status: "draft",
-        predictions: createBlankPredictions(),
-        pool_ids: [],
-      };
-
-      return {
-        ...prev,
-        entries: [createdEntry, ...prev.entries],
-      };
-    });
-
-    return createdEntry;
-  }, []);
-
-  const createPool = useCallback((input: CreatePoolInput) => {
+  const createPool = useCallback(async (input: CreatePoolInput): Promise<CreatePoolResult> => {
     const name = input.name.trim();
     const description = input.description.trim();
-    const joinPassword = input.joinPassword.trim();
-    let outcome:
-      | { ok: true; pool: PoolRecord }
-      | { ok: false; message: string } = { ok: false, message: "Unable to create pool." };
 
-    setState((prev) => {
-      const owner = prev.users.find((user) => user.id === prev.current_user_id);
-      if (!owner) {
-        outcome = { ok: false, message: "Log in before creating a pool." };
-        return prev;
-      }
+    if (!name) {
+      return { ok: false, message: "Give your pool a name." };
+    }
 
-      if (!name) {
-        outcome = { ok: false, message: "Give your pool a name." };
-        return prev;
-      }
-
-      const pool: PoolRecord = {
-        id: generateId("pool"),
-        name,
-        description:
-          description || "A custom World Cup bracket pool for invited competitors.",
-        accent: pickPoolAccent(prev.pools.length),
-        invite_code: createInviteCode(name),
-        owner_id: owner.id,
-        owner_name: owner.name,
-        member_ids: [owner.id],
-        join_password: joinPassword,
-        created_at: new Date().toISOString(),
-      };
-
-      outcome = { ok: true, pool };
-
-      return {
-        ...prev,
-        pools: [pool, ...prev.pools],
-      };
-    });
-
-    return outcome;
-  }, []);
-
-  const deletePool = useCallback((poolId: string) => {
-    let outcome: { ok: true } | { ok: false; message: string } = {
-      ok: false,
-      message: "Unable to delete pool.",
-    };
-
-    setState((prev) => {
-      const pool = prev.pools.find((candidate) => candidate.id === poolId);
-      if (!pool) {
-        outcome = { ok: false, message: "That pool was not found." };
-        return prev;
-      }
-
-      if (pool.owner_id !== prev.current_user_id) {
-        outcome = { ok: false, message: "Only the pool owner can delete this pool." };
-        return prev;
-      }
-
-      outcome = { ok: true };
-
-      return {
-        ...prev,
-        pools: prev.pools.filter((candidate) => candidate.id !== poolId),
-        entries: prev.entries.map((entry) => ({
-          ...entry,
-          pool_ids: entry.pool_ids.filter((candidate) => candidate !== poolId),
-          updated_at: entry.pool_ids.includes(poolId)
-            ? new Date().toISOString()
-            : entry.updated_at,
-        })),
-      };
-    });
-
-    return outcome;
-  }, []);
-
-  const updateEntry = useCallback((entryId: string, updates: Partial<StoredEntry>) => {
-    setState((prev) => ({
-      ...prev,
-      entries: prev.entries.map((entry) =>
-        entry.id === entryId
-          ? {
-              ...entry,
-              ...updates,
-              updated_at: new Date().toISOString(),
-            }
-          : entry
-      ),
-    }));
-  }, []);
-
-  const deleteEntry = useCallback((entryId: string) => {
-    let outcome: { ok: true } | { ok: false; message: string } = { ok: false, message: "Unable to delete entry." };
-
-    setState((prev) => {
-      const entry = prev.entries.find((candidate) => candidate.id === entryId);
-      if (!entry) {
-        outcome = { ok: false, message: "That entry was not found." };
-        return prev;
-      }
-
-      if (entry.owner_id !== prev.current_user_id) {
-        outcome = { ok: false, message: "You can only delete your own entries." };
-        return prev;
-      }
-
-      outcome = { ok: true };
-
-      return {
-        ...prev,
-        entries: prev.entries.filter((candidate) => candidate.id !== entryId),
-      };
-    });
-
-    return outcome;
-  }, []);
-
-  const addEntryToPool = useCallback((entryId: string, poolId: string) => {
-    setState((prev) => ({
-      ...prev,
-      entries: prev.entries.map((entry) => {
-        const pool = prev.pools.find((candidate) => candidate.id === poolId);
-        if (
-          entry.id !== entryId ||
-          entry.pool_ids.includes(poolId) ||
-          entry.owner_id !== prev.current_user_id ||
-          !pool ||
-          !pool.member_ids.includes(entry.owner_id)
-        ) {
-          return entry;
-        }
-
-        return {
-          ...entry,
-          pool_ids: [...entry.pool_ids, poolId],
-          updated_at: new Date().toISOString(),
-        };
-      }),
-    }));
-  }, []);
-
-  const removeEntryFromPool = useCallback((entryId: string, poolId: string) => {
-    setState((prev) => ({
-      ...prev,
-      entries: prev.entries.map((entry) => {
-        if (
-          entry.id !== entryId ||
-          entry.owner_id !== prev.current_user_id ||
-          !entry.pool_ids.includes(poolId)
-        ) {
-          return entry;
-        }
-
-        return {
-          ...entry,
-          pool_ids: entry.pool_ids.filter((candidate) => candidate !== poolId),
-          updated_at: new Date().toISOString(),
-        };
-      }),
-    }));
-  }, []);
-
-  const joinPoolByInviteCode = useCallback((inviteCode: string, password = "") => {
-    const normalizedCode = inviteCode.trim().toUpperCase();
-    const normalizedPassword = password.trim();
-    let outcome:
-      | { ok: true; pool: PoolRecord }
-      | { ok: false; message: string } = { ok: false, message: "Unable to join pool." };
-
-    setState((prev) => {
-      const userId = prev.current_user_id;
-      if (!userId) {
-        outcome = { ok: false, message: "Log in before joining a pool." };
-        return prev;
-      }
-
-      const pool = prev.pools.find(
-        (candidate) => candidate.invite_code.toUpperCase() === normalizedCode
+    try {
+      const created = decoratePool(
+        await requestApi<ApiPoolSummary>("/api/pools", {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            description,
+            join_password: input.joinPassword.trim() || null,
+          }),
+        }),
+        pools.length
       );
+      setPools((prev) => [created, ...prev]);
+      return { ok: true, pool: created };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not create this pool.") };
+    }
+  }, [pools.length]);
 
-      if (!pool) {
-        outcome = { ok: false, message: "That invite link did not match a pool." };
-        return prev;
+  const deletePool = useCallback(async (poolId: string): Promise<ActionResult> => {
+    try {
+      await requestApi<{ ok: true }>(`/api/pools/${poolId}`, { method: "DELETE" });
+      setPools((prev) => prev.filter((pool) => pool.id !== poolId));
+      setPoolDetails((prev) => {
+        const next = { ...prev };
+        delete next[poolId];
+        return next;
+      });
+      syncEntries(entries.map((entry) => ({
+        ...entry,
+        pool_ids: entry.pool_ids.filter((currentPoolId) => currentPoolId !== poolId),
+      })));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not delete this pool.") };
+    }
+  }, [entries, syncEntries]);
+
+  const joinPoolByInviteCode = useCallback(
+    async (inviteCode: string, password?: string): Promise<JoinPoolResult> => {
+      try {
+        const joined = decoratePool(
+          await requestApi<ApiPoolSummary>(`/api/pools/join/${inviteCode}`, {
+            method: "POST",
+            body: JSON.stringify({ password: password?.trim() || null }),
+          }),
+          pools.length
+        );
+        await refreshPools();
+        setInvitePools((prev) => ({ ...prev, [inviteCode.toUpperCase()]: joined }));
+        return { ok: true, pool: joined };
+      } catch (error) {
+        return { ok: false, message: toFriendlyError(error, "Could not join this pool.") };
       }
+    },
+    [pools.length, refreshPools]
+  );
 
-      if (pool.join_password && pool.join_password !== normalizedPassword) {
-        outcome = { ok: false, message: "That pool requires the shared password to join." };
-        return prev;
-      }
-
-      if (pool.member_ids.includes(userId)) {
-        outcome = { ok: true, pool };
-        return prev;
-      }
-
-      const nextPool = {
-        ...pool,
-        member_ids: [...pool.member_ids, userId],
-      };
-
-      outcome = { ok: true, pool: nextPool };
-
-      return {
-        ...prev,
-        pools: prev.pools.map((candidate) =>
-          candidate.id === pool.id ? nextPool : candidate
-        ),
-      };
-    });
-
-    return outcome;
+  const updateEntry = useCallback(async (entryId: string, updates: Partial<StoredEntry>) => {
+    try {
+      const updated = normalizeEntry(
+        await requestApi<StoredEntry>(`/api/entries/${entryId}`, {
+          method: "PATCH",
+          body: JSON.stringify(toApiUpdates(updates)),
+        })
+      );
+      setEntries((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setEntryCache((prev) => ({ ...prev, [updated.id]: updated }));
+      setPoolDetails((prev) => {
+        const next = { ...prev };
+        for (const [poolId, detail] of Object.entries(next)) {
+          if (detail.entries.some((entry) => entry.id === updated.id)) {
+            next[poolId] = {
+              ...detail,
+              entries: detail.entries.map((entry) => (entry.id === updated.id ? updated : entry)),
+            };
+          }
+        }
+        return next;
+      });
+      return updated;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
   }, []);
+
+  const deleteEntry = useCallback(async (entryId: string): Promise<ActionResult> => {
+    try {
+      await requestApi<{ ok: true }>(`/api/entries/${entryId}`, { method: "DELETE" });
+      setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+      setEntryCache((prev) => {
+        const next = { ...prev };
+        delete next[entryId];
+        return next;
+      });
+      setPoolDetails((prev) => {
+        const next = { ...prev };
+        for (const [poolId, detail] of Object.entries(next)) {
+          next[poolId] = {
+            ...detail,
+            entries: detail.entries.filter((entry) => entry.id !== entryId),
+          };
+        }
+        return next;
+      });
+      await refreshPools();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not delete this entry.") };
+    }
+  }, [refreshPools]);
+
+  const addEntryToPool = useCallback(async (entryId: string, poolId: string): Promise<ActionResult> => {
+    try {
+      await requestApi<{ ok: true }>(`/api/pools/${poolId}/entries/${entryId}`, { method: "POST" });
+      await Promise.all([refreshEntries(), refreshPools()]);
+      if (poolDetails[poolId]) {
+        await requestApi<ApiPoolDetail>(`/api/pools/${poolId}`).then((detail) => {
+          const summary = pools.find((pool) => pool.id === poolId);
+          setPoolDetails((prev) => ({
+            ...prev,
+            [poolId]: decoratePoolDetail(detail, summary?.accent),
+          }));
+        });
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not add this entry to the pool.") };
+    }
+  }, [poolDetails, pools, refreshEntries, refreshPools]);
+
+  const removeEntryFromPool = useCallback(async (entryId: string, poolId: string): Promise<ActionResult> => {
+    try {
+      await requestApi<{ ok: true }>(`/api/pools/${poolId}/entries/${entryId}`, { method: "DELETE" });
+      await Promise.all([refreshEntries(), refreshPools()]);
+      if (poolDetails[poolId]) {
+        await requestApi<ApiPoolDetail>(`/api/pools/${poolId}`).then((detail) => {
+          const summary = pools.find((pool) => pool.id === poolId);
+          setPoolDetails((prev) => ({
+            ...prev,
+            [poolId]: decoratePoolDetail(detail, summary?.accent),
+          }));
+        });
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: toFriendlyError(error, "Could not remove this entry from the pool.") };
+    }
+  }, [poolDetails, pools, refreshEntries, refreshPools]);
+
+  const loadEntryById = useCallback(async (entryId: string) => {
+    try {
+      const entry = normalizeEntry(await requestApi<StoredEntry>(`/api/entries/${entryId}`));
+      setEntryCache((prev) => ({ ...prev, [entry.id]: entry }));
+      setEntries((prev) =>
+        prev.some((current) => current.id === entry.id)
+          ? prev.map((current) => (current.id === entry.id ? entry : current))
+          : prev
+      );
+      return entry;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null;
+      }
+      console.error(error);
+      return null;
+    }
+  }, []);
+
+  const loadPoolDetail = useCallback(async (poolId: string) => {
+    try {
+      const detail = await requestApi<ApiPoolDetail>(`/api/pools/${poolId}`);
+      const summary = pools.find((pool) => pool.id === poolId);
+      const normalized = decoratePoolDetail(detail, summary?.accent);
+      setPoolDetails((prev) => ({ ...prev, [poolId]: normalized }));
+      setEntryCache((prev) => {
+        const next = { ...prev };
+        for (const entry of normalized.entries) {
+          next[entry.id] = entry;
+        }
+        return next;
+      });
+      setPools((prev) =>
+        prev.map((pool) =>
+          pool.id === poolId
+            ? {
+                ...pool,
+                description: normalized.description,
+                invite_code: normalized.invite_code,
+                owner_id: normalized.owner_id,
+                owner_name: normalized.owner_name,
+                member_count: normalized.member_count,
+                entry_count: normalized.entry_count,
+                is_password_protected: normalized.is_password_protected,
+                created_at: normalized.created_at,
+                updated_at: normalized.updated_at,
+              }
+            : pool
+        )
+      );
+      return normalized;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null;
+      }
+      console.error(error);
+      return null;
+    }
+  }, [pools]);
+
+  const loadPoolByInviteCode = useCallback(async (inviteCode: string) => {
+    try {
+      const pool = decoratePool(
+        await requestApi<ApiPoolSummary>(`/api/pools/invite/${inviteCode}`),
+        pools.length
+      );
+      setInvitePools((prev) => ({ ...prev, [inviteCode.toUpperCase()]: pool }));
+      return pool;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null;
+      }
+      console.error(error);
+      return null;
+    }
+  }, [pools.length]);
 
   const getEntryById = useCallback(
-    (entryId: string) => state.entries.find((entry) => entry.id === entryId),
-    [state.entries]
+    (entryId: string) => entryCache[entryId] ?? entries.find((entry) => entry.id === entryId),
+    [entries, entryCache]
   );
 
   const getPoolById = useCallback(
-    (poolId: string) => state.pools.find((pool) => pool.id === poolId),
-    [state.pools]
+    (poolId: string) => poolDetails[poolId] ?? pools.find((pool) => pool.id === poolId),
+    [poolDetails, pools]
   );
 
+  const getPoolDetailById = useCallback((poolId: string) => poolDetails[poolId], [poolDetails]);
+
   const getPoolByInviteCode = useCallback(
-    (inviteCode: string) =>
-      state.pools.find(
-        (pool) => pool.invite_code.toUpperCase() === inviteCode.trim().toUpperCase()
-      ),
-    [state.pools]
+    (inviteCode: string) => invitePools[inviteCode.toUpperCase()],
+    [invitePools]
   );
 
   const isUserInPool = useCallback(
-    (poolId: string, userId?: string | null) => {
-      if (!userId) {
-        return false;
-      }
-
-      const pool = state.pools.find((candidate) => candidate.id === poolId);
-      return Boolean(pool && pool.member_ids.includes(userId));
-    },
-    [state.pools]
+    (poolId: string, userId?: string | null) => Boolean(userId && pools.some((pool) => pool.id === poolId)),
+    [pools]
   );
 
-  const canEditEntry = useCallback(
-    (entry: StoredEntry | undefined) => Boolean(entry && currentUser && entry.owner_id === currentUser.id),
-    [currentUser]
-  );
+  const canEditEntry = useCallback((entry: StoredEntry | undefined) => Boolean(entry?.can_edit), []);
 
   const value = useMemo<AppDataContextValue>(
     () => ({
       isHydrated,
       currentUser,
-      entries: state.entries,
-      pools: state.pools,
+      entries,
+      pools,
       registerUser,
       loginUser,
       logoutUser,
@@ -675,8 +600,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteEntry,
       addEntryToPool,
       removeEntryFromPool,
+      loadEntryById,
+      loadPoolDetail,
+      loadPoolByInviteCode,
       getEntryById,
       getPoolById,
+      getPoolDetailById,
       getPoolByInviteCode,
       isUserInPool,
       canEditEntry,
@@ -687,20 +616,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       createEntry,
       createPool,
       currentUser,
-      deletePool,
       deleteEntry,
+      deletePool,
+      entries,
       getEntryById,
       getPoolById,
       getPoolByInviteCode,
+      getPoolDetailById,
       isHydrated,
       isUserInPool,
       joinPoolByInviteCode,
+      loadEntryById,
+      loadPoolByInviteCode,
+      loadPoolDetail,
       loginUser,
       logoutUser,
-      removeEntryFromPool,
+      pools,
       registerUser,
-      state.entries,
-      state.pools,
+      removeEntryFromPool,
       updateEntry,
     ]
   );
@@ -710,10 +643,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
 export function useAppData() {
   const context = useContext(AppDataContext);
-
   if (!context) {
-    throw new Error("useAppData must be used inside AppDataProvider.");
+    throw new Error("useAppData must be used inside AppDataProvider");
   }
-
   return context;
 }

@@ -16,13 +16,13 @@ export default function AppHeader({
   const router = useRouter();
   const { currentUser, createEntry, logoutUser } = useAppData();
 
-  function handleCreateEntry() {
+  async function handleCreateEntry() {
     if (!currentUser) {
       router.push("/register?next=/wc/entry/new");
       return;
     }
 
-    const created = createEntry();
+    const created = await createEntry();
     if (created) {
       router.push(`/entries/${created.id}`);
     }
@@ -55,14 +55,15 @@ export default function AppHeader({
         ) : null}
 
         {currentUser ? (
-          <button
-            type="button"
-            onClick={() => {
-              logoutUser();
-              router.push("/");
-            }}
-            className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
-          >
+            <button
+              type="button"
+              onClick={() => {
+                void logoutUser().then(() => {
+                  router.push("/");
+                });
+              }}
+              className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
+            >
             Log out
           </button>
         ) : (

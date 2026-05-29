@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -49,4 +49,12 @@ def create_database() -> None:
     """Create all configured database tables."""
     from . import db_models  # noqa: F401
 
-    Base.metadata.create_all(bind=get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+
+    inspector = inspect(engine)
+    if "pools" in inspector.get_table_names():
+        columns = {column["name"] for column in inspector.get_columns("pools")}
+        if "join_password_hash" not in columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE pools ADD COLUMN join_password_hash VARCHAR(255)"))

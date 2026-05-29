@@ -3,26 +3,37 @@
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
 import { useAppData } from "@/components/providers/AppDataProvider";
+import { withBasePath } from "@/lib/basePath";
 
 export default function HomePage() {
   const router = useRouter();
   const { currentUser, createEntry, isHydrated } = useAppData();
 
-  function handleCreateEntry() {
+  async function handleCreateEntry() {
     if (!currentUser) {
       router.push("/register?next=/wc/entry/new");
       return;
     }
 
-    const created = createEntry();
+    const created = await createEntry();
     if (created) {
       router.push(`/entries/${created.id}`);
     }
   }
 
   return (
-    <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
+    <main className="rr-page relative min-h-screen overflow-hidden px-4 py-8 sm:px-6">
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('${withBasePath("/64%20qatar.jpg")}')`,
+          }}
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,14,20,0.3)_0%,rgba(18,14,20,0.18)_24%,rgba(247,241,238,0.64)_100%)]" />
+      </div>
+
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-8">
         <section className="rr-frame rounded-[34px] p-6 md:p-8">
           <AppHeader showWorkspaceLink={Boolean(currentUser)} showCreateButton={false} />
 

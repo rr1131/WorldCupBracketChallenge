@@ -15,9 +15,11 @@ export default function JoinPoolPage() {
     isHydrated,
     isUserInPool,
     joinPoolByInviteCode,
+    loadPoolByInviteCode,
   } = useAppData();
   const [password, setPassword] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [hasAttemptedLookup, setHasAttemptedLookup] = useState(false);
 
   const pool = useMemo(
     () => getPoolByInviteCode(params.inviteCode),
@@ -31,8 +33,16 @@ export default function JoinPoolPage() {
     }
   }, [currentUser, isHydrated, params.inviteCode, router]);
 
-  function handleJoinPool() {
-    const outcome = joinPoolByInviteCode(params.inviteCode, password);
+  useEffect(() => {
+    if (!pool) {
+      void loadPoolByInviteCode(params.inviteCode).finally(() => {
+        setHasAttemptedLookup(true);
+      });
+    }
+  }, [loadPoolByInviteCode, params.inviteCode, pool]);
+
+  async function handleJoinPool() {
+    const outcome = await joinPoolByInviteCode(params.inviteCode, password);
     if (!outcome.ok) {
       setJoinError(outcome.message);
       return;
@@ -42,7 +52,7 @@ export default function JoinPoolPage() {
     router.replace(`/pools/${outcome.pool.id}`);
   }
 
-  if (isHydrated && !pool) {
+  if (isHydrated && hasAttemptedLookup && !pool) {
     return (
       <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-5xl space-y-6">
@@ -99,7 +109,7 @@ export default function JoinPoolPage() {
               <div className="rr-card rounded-2xl p-4">
                 <div className="rr-soft text-xs uppercase tracking-[0.18em]">Access</div>
                 <div className="mt-2 text-xl font-semibold text-[#251a18]">
-                  {pool.join_password ? "Password protected" : "Invite link"}
+                  {pool.is_password_protected ? "Password protected" : "Invite link"}
                 </div>
               </div>
             </div>
@@ -118,7 +128,7 @@ export default function JoinPoolPage() {
               </div>
             ) : (
               <div className="mt-6 space-y-4">
-                {pool.join_password ? (
+                {pool.is_password_protected ? (
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}

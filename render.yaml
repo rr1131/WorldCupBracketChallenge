@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: worldcup-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -e .
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_T8aiGKkLNvx5@ep-shiny-fire-aq27ct8r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: TRUTH_PROVIDER
+        value: espn_cached
+      - key: ESPN_SYNC_ENABLED
+        value: "true"
+      - key: ESPN_POLL_INTERVAL_SECONDS
+        value: "60"
+      - key: ESPN_SYNC_STALE_AFTER_SECONDS
+        value: "300"
+      - key: TRUTH_OVERRIDE_PATH
+        value: config/truth/override.json
+      - key: ESPN_MAPPING_PATH
+        value: config/espn_mapping.json
+      - key: TOURNAMENT_PATH
+        value: config/tournament.json
+
+  - type: web
+    name: worldcup-web
+    runtime: node
+    rootDir: web
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npx next start --hostname 0.0.0.0 --port $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_BASE_PATH
+        sync: false

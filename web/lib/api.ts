@@ -13,3 +13,41 @@ export function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${getApiBaseUrl()}${normalizedPath}`;
 }
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(buildApiUrl(path), {
+    credentials: "include",
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json() : null;
+
+  if (!response.ok) {
+    const detail =
+      payload && typeof payload === "object" && "detail" in payload && typeof payload.detail === "string"
+        ? payload.detail
+        : `Request failed with status ${response.status}.`;
+    throw new ApiError(detail, response.status);
+  }
+
+  return payload as T;
+}

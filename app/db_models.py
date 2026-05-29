@@ -69,6 +69,7 @@ class Pool(Base):
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
     invite_code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    join_password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

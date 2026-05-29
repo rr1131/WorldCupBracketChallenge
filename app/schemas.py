@@ -68,6 +68,13 @@ class CreatePoolIn(BaseModel):
 
     name: str
     description: str = ""
+    join_password: str | None = None
+
+
+class JoinPoolIn(BaseModel):
+    """Optional pool join payload."""
+
+    password: str | None = None
 
 
 class AuthUserOut(BaseModel):
@@ -127,6 +134,7 @@ class PoolSummaryOut(BaseModel):
     owner_name: str
     member_count: int
     entry_count: int
+    is_password_protected: bool
     created_at: str
     updated_at: str
 
@@ -153,6 +161,9 @@ class LiveFixtureOut(BaseModel):
     status: str
     display_status: str
     winner_team: str | None = None
+    sportsbook_name: str | None = None
+    spread_line: str | None = None
+    over_under_line: str | None = None
     espn_event_id: str | None = None
     updated_at: str | None = None
 

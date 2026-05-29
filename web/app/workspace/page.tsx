@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
 import LiveMatchRail from "@/components/app/LiveMatchRail";
 import { useAppData } from "@/components/providers/AppDataProvider";
+import FlagIcon from "@/components/entry/FlagIcon";
+import { getEntryChampionTeam, isEntryComplete } from "@/lib/entries";
 import type { StoredEntry } from "@/lib/types";
 
 type WorkspaceTab = "entries" | "pools";
@@ -52,15 +54,15 @@ export default function WorkspacePage() {
     }
   }, [currentUser, isHydrated, router]);
 
-  function handleCreateEntry() {
-    const created = createEntry();
+  async function handleCreateEntry() {
+    const created = await createEntry();
     if (created) {
       router.push(`/entries/${created.id}`);
     }
   }
 
-  function handleCreatePool() {
-    const outcome = createPool({
+  async function handleCreatePool() {
+    const outcome = await createPool({
       name: newPoolName,
       description: newPoolDescription,
       joinPassword: newPoolPassword,
@@ -79,7 +81,7 @@ export default function WorkspacePage() {
     router.push(`/pools/${outcome.pool.id}`);
   }
 
-  function handleDeleteEntry(entryId: string) {
+  async function handleDeleteEntry(entryId: string) {
     const confirmed = window.confirm(
       "Delete this entry from your wizard? This also removes it from any pools it was in."
     );
@@ -88,7 +90,7 @@ export default function WorkspacePage() {
       return;
     }
 
-    const outcome = deleteEntry(entryId);
+    const outcome = await deleteEntry(entryId);
     if (!outcome.ok) {
       window.alert(outcome.message);
     }
@@ -161,19 +163,40 @@ export default function WorkspacePage() {
             ) : null}
 
             {userEntries.map((entry) => (
+              ((isComplete, championTeam) => (
               <article
                 key={entry.id}
-                className="rr-card rounded-[28px] p-6"
+                className={[
+                  "rounded-[28px] p-6",
+                  isComplete
+                    ? "border border-[#8fd19a] bg-[linear-gradient(180deg,rgba(246,255,247,0.98),rgba(235,248,236,0.94))] shadow-[0_24px_70px_rgba(58,140,74,0.12)]"
+                    : "rr-card",
+                ].join(" ")}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.2em]">
-                      {entry.status}
+                    <div
+                      className={[
+                        "text-xs font-semibold uppercase tracking-[0.2em]",
+                        isComplete ? "text-[#2f7a3e]" : "rr-kicker",
+                      ].join(" ")}
+                    >
+                      {isComplete ? "Completed" : entry.status}
                     </div>
-                    <h2 className="mt-2 text-2xl font-semibold text-[#251a18]">{entry.entry_name}</h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <h2 className="text-2xl font-semibold text-[#251a18]">{entry.entry_name}</h2>
+                      {isComplete && championTeam ? (
+                        <FlagIcon teamCode={championTeam} className="h-6 w-8 rounded-md" />
+                      ) : null}
+                    </div>
                     <div className="rr-body mt-2 text-sm">
                       Updated {new Date(entry.updated_at).toLocaleString()}
                     </div>
+                    {!isComplete ? (
+                      <div className="mt-2 text-sm font-medium text-[#8c7770]">
+                        Not complete yet.
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="rr-score-card rounded-2xl px-4 py-3 text-right">
@@ -219,7 +242,7 @@ export default function WorkspacePage() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => handleDeleteEntry(entry.id)}
+                    onClick={() => void handleDeleteEntry(entry.id)}
                     className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                   >
                     Delete Entry
@@ -231,7 +254,7 @@ export default function WorkspacePage() {
                       <button
                         key={pool.id}
                         type="button"
-                        onClick={() => addEntryToPool(entry.id, pool.id)}
+                        onClick={() => void addEntryToPool(entry.id, pool.id)}
                         className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                       >
                         Add to {pool.name}
@@ -239,6 +262,7 @@ export default function WorkspacePage() {
                     ))}
                 </div>
               </article>
+              ))(isEntryComplete(entry), getEntryChampionTeam(entry))
             ))}
           </section>
         ) : (
@@ -273,7 +297,7 @@ export default function WorkspacePage() {
                   <input
                     value={newPoolPassword}
                     onChange={(event) => setNewPoolPassword(event.target.value)}
-                    placeholder= "Password (Optional)"
+                    placeholder="Password (Optional)"
                     type="password"
                     className="rr-input w-full rounded-2xl px-4 py-3 transition"
                   />
@@ -325,7 +349,7 @@ export default function WorkspacePage() {
                   </div>
                   <p className="rr-body mt-4 text-sm leading-7">{pool.description}</p>
                   <div className="rr-body mt-2 text-xs uppercase tracking-[0.16em]">
-                    {pool.join_password ? "Password protected" : "Invite link only"}
+                    {pool.is_password_protected ? "Password protected" : "Invite link only"}
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">

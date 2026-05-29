@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
+import FlagIcon from "@/components/entry/FlagIcon";
 import { useAppData } from "@/components/providers/AppDataProvider";
+import { withBasePath } from "@/lib/basePath";
+import { bracketsLocked, getEntryChampionTeam, isEntryComplete } from "@/lib/entries";
 import type { StoredEntry } from "@/lib/types";
 
 function getScore(entry: StoredEntry) {
@@ -24,22 +27,24 @@ export default function PoolDetailPage() {
     deletePool,
     entries,
     getPoolById,
+    getPoolDetailById,
     isHydrated,
     isUserInPool,
     joinPoolByInviteCode,
+    loadPoolDetail,
     removeEntryFromPool,
   } = useAppData();
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [joinPassword, setJoinPassword] = useState("");
   const pool = getPoolById(params.poolId);
+  const poolDetail = getPoolDetailById(params.poolId);
   const isMember = isUserInPool(params.poolId, currentUser?.id);
   const isOwner = currentUser?.id === pool?.owner_id;
 
   const leaderboard = useMemo(() => {
-    return entries
-      .filter((entry) => entry.pool_ids.includes(params.poolId))
+    return [...(poolDetail?.entries ?? [])]
       .sort((left, right) => (getScore(right) ?? 0) - (getScore(left) ?? 0));
-  }, [entries, params.poolId]);
+  }, [poolDetail?.entries]);
 
   const addableEntries = useMemo(() => {
     return entries.filter(
@@ -55,10 +60,10 @@ export default function PoolDetailPage() {
     }
 
     if (typeof window === "undefined") {
-      return `/pools/join/${pool.invite_code}`;
+      return withBasePath(`/pools/join/${pool.invite_code}`);
     }
 
-    return `${window.location.origin}/pools/join/${pool.invite_code}`;
+    return `${window.location.origin}${withBasePath(`/pools/join/${pool.invite_code}`)}`;
   }, [pool]);
 
   useEffect(() => {
@@ -66,6 +71,16 @@ export default function PoolDetailPage() {
       router.replace(`/register?next=/pools/${params.poolId}`);
     }
   }, [currentUser, isHydrated, params.poolId, router]);
+
+  useEffect(() => {
+    if (!isHydrated || !currentUser || !isMember) {
+      return;
+    }
+
+    if (!poolDetail) {
+      void loadPoolDetail(params.poolId);
+    }
+  }, [currentUser, isHydrated, isMember, loadPoolDetail, params.poolId, poolDetail]);
 
   if (isHydrated && !pool) {
     return (
@@ -93,12 +108,12 @@ export default function PoolDetailPage() {
     }
   }
 
-  function handleJoinPool() {
-    const outcome = joinPoolByInviteCode(pool.invite_code, joinPassword);
+  async function handleJoinPool() {
+    const outcome = await joinPoolByInviteCode(pool.invite_code, joinPassword);
     setShareMessage(outcome.ok ? "You joined this pool." : outcome.message);
   }
 
-  function handleDeletePool() {
+  async function handleDeletePool() {
     const confirmed = window.confirm(
       "Delete this pool? All pool memberships and attached pool entries will be removed."
     );
@@ -107,7 +122,7 @@ export default function PoolDetailPage() {
       return;
     }
 
-    const outcome = deletePool(pool.id);
+    const outcome = await deletePool(pool.id);
     if (!outcome.ok) {
       setShareMessage(outcome.message);
       return;
@@ -134,9 +149,9 @@ export default function PoolDetailPage() {
               <div className="rr-body mt-4 flex flex-wrap gap-2 text-sm">
                 <div>Owner: {pool.owner_name}</div>
                 <div>•</div>
-                <div>{pool.member_ids.length} members</div>
+                <div>{pool.member_count} members</div>
                 <div>•</div>
-                <div>{pool.join_password ? "Password protected" : "Open with invite link"}</div>
+                <div>{pool.is_password_protected ? "Password protected" : "Open with invite link"}</div>
               </div>
             </div>
 
@@ -157,7 +172,7 @@ export default function PoolDetailPage() {
                   {!isMember ? (
                     <button
                       type="button"
-                      onClick={handleJoinPool}
+                      onClick={() => void handleJoinPool()}
                       className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                     >
                       Join Pool
@@ -166,14 +181,14 @@ export default function PoolDetailPage() {
                   {isOwner ? (
                     <button
                       type="button"
-                      onClick={handleDeletePool}
+                      onClick={() => void handleDeletePool()}
                       className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                     >
                       Delete Pool
                     </button>
                   ) : null}
                 </div>
-                {!isMember && pool.join_password ? (
+                {!isMember && pool.is_password_protected ? (
                   <div className="mt-3">
                     <input
                       value={joinPassword}
@@ -222,7 +237,7 @@ export default function PoolDetailPage() {
                   <button
                     key={entry.id}
                     type="button"
-                    onClick={() => addEntryToPool(entry.id, pool.id)}
+                    onClick={() => void addEntryToPool(entry.id, pool.id)}
                     className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                   >
                     Add {entry.entry_name}
@@ -290,7 +305,7 @@ export default function PoolDetailPage() {
                       {isOwner ? (
                         <button
                           type="button"
-                          onClick={() => removeEntryFromPool(entry.id, pool.id)}
+                          onClick={() => void removeEntryFromPool(entry.id, pool.id)}
                           className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                         >
                           Remove from Pool
@@ -344,8 +359,18 @@ export default function PoolDetailPage() {
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-[#251a18]">
-                        {entry.entry_name}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="truncate text-base font-semibold text-[#251a18]">
+                          {entry.entry_name}
+                        </div>
+                        {isEntryComplete(entry) &&
+                        getEntryChampionTeam(entry) &&
+                        (bracketsLocked() || currentUser?.id === entry.owner_id) ? (
+                          <FlagIcon
+                            teamCode={getEntryChampionTeam(entry)!}
+                            className="h-4.5 w-6 shrink-0 rounded-sm"
+                          />
+                        ) : null}
                       </div>
                       <div className="rr-body truncate text-sm">{entry.owner_name}</div>
                     </div>

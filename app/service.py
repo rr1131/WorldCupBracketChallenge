@@ -607,8 +607,20 @@ def delete_entry_for_owner(session: Session, user: User, entry_id: str) -> None:
 
 def create_pool_for_user(session: Session, user: User, name: str, description: str) -> dict[str, Any]:
     """Create a pool and add the owner as the first member."""
+    return create_pool_for_user_with_password(session, user, name, description, None)
+
+
+def create_pool_for_user_with_password(
+    session: Session,
+    user: User,
+    name: str,
+    description: str,
+    join_password: str | None,
+) -> dict[str, Any]:
+    """Create a pool and add the owner as the first member."""
     normalized_name = name.strip()
     normalized_description = description.strip() or "A World Cup bracket pool for invited competitors."
+    normalized_password = join_password.strip() if join_password else ""
     if not normalized_name:
         raise ServiceError("Give your pool a name.")
 
@@ -622,6 +634,7 @@ def create_pool_for_user(session: Session, user: User, name: str, description: s
         name=normalized_name,
         description=normalized_description,
         invite_code=invite_code,
+        join_password_hash=hash_password(normalized_password) if normalized_password else None,
     )
     session.add(pool)
     session.flush()
@@ -643,6 +656,7 @@ def serialize_pool_summary(pool: Pool) -> dict[str, Any]:
         "owner_name": pool.owner.username,
         "member_count": len(pool.members),
         "entry_count": len(pool.entry_links),
+        "is_password_protected": bool(pool.join_password_hash),
         "created_at": pool.created_at.isoformat(),
         "updated_at": pool.updated_at.isoformat(),
     }
@@ -661,11 +675,40 @@ def list_pools_for_user(session: Session, user: User) -> list[dict[str, Any]]:
     return [serialize_pool_summary(pool) for pool in pools]
 
 
-def join_pool_by_invite_code(session: Session, user: User, invite_code: str) -> dict[str, Any]:
+def get_pool_by_invite_code(session: Session, invite_code: str) -> dict[str, Any]:
+    """Return public summary metadata for a pool invite."""
+    pool = session.scalar(_pool_query().where(Pool.invite_code == invite_code.strip().upper()))
+    if pool is None:
+        raise ServiceError("That invite code did not match a pool.", status_code=404)
+    return serialize_pool_summary(pool)
+
+
+def delete_pool_for_owner(session: Session, user: User, pool_id: str) -> None:
+    """Delete a pool owned by the current user."""
+    pool = session.scalar(_pool_query().where(Pool.id == pool_id))
+    if pool is None:
+        raise ServiceError("Pool not found.", status_code=404)
+    if pool.owner_id != user.id:
+        raise ServiceError("Only the pool owner can delete this pool.", status_code=403)
+    session.delete(pool)
+    session.commit()
+
+
+def join_pool_by_invite_code(
+    session: Session,
+    user: User,
+    invite_code: str,
+    password: str | None = None,
+) -> dict[str, Any]:
     """Join a pool via its invite code."""
     pool = session.scalar(_pool_query().where(Pool.invite_code == invite_code.strip().upper()))
     if pool is None:
         raise ServiceError("That invite code did not match a pool.", status_code=404)
+
+    if pool.join_password_hash:
+        normalized_password = password.strip() if password else ""
+        if not normalized_password or not verify_password(normalized_password, pool.join_password_hash):
+            raise ServiceError("That pool requires the shared password.", status_code=403)
 
     existing_member = session.scalar(
         select(PoolMember).where(PoolMember.pool_id == pool.id, PoolMember.user_id == user.id)

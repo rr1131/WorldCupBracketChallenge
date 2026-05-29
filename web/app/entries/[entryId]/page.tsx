@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
 import EntryBuilder from "@/components/entry/EntryBuilder";
@@ -11,7 +11,16 @@ import type { StoredEntry } from "@/lib/types";
 export default function EntryDetailPage() {
   const router = useRouter();
   const params = useParams<{ entryId: string }>();
-  const { canEditEntry, currentUser, deleteEntry, getEntryById, isHydrated, updateEntry } = useAppData();
+  const {
+    canEditEntry,
+    currentUser,
+    deleteEntry,
+    getEntryById,
+    isHydrated,
+    loadEntryById,
+    updateEntry,
+  } = useAppData();
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const entry = getEntryById(params.entryId);
   const isEditable = canEditEntry(entry);
   const handleSave = useCallback(
@@ -20,7 +29,7 @@ export default function EntryDetailPage() {
         return;
       }
 
-      updateEntry(entry.id, updates);
+      void updateEntry(entry.id, updates);
     },
     [entry, updateEntry]
   );
@@ -36,13 +45,15 @@ export default function EntryDetailPage() {
       return;
     }
 
-    const outcome = deleteEntry(entry.id);
-    if (!outcome.ok) {
-      window.alert(outcome.message);
-      return;
-    }
+    void (async () => {
+      const outcome = await deleteEntry(entry.id);
+      if (!outcome.ok) {
+        window.alert(outcome.message);
+        return;
+      }
 
-    router.replace("/workspace");
+      router.replace("/workspace");
+    })();
   }, [deleteEntry, entry, router]);
 
   useEffect(() => {
@@ -51,7 +62,19 @@ export default function EntryDetailPage() {
     }
   }, [currentUser, isHydrated, params.entryId, router]);
 
-  if (isHydrated && !entry) {
+  useEffect(() => {
+    if (!isHydrated || !currentUser) {
+      return;
+    }
+
+    if (!entry) {
+      void loadEntryById(params.entryId).finally(() => {
+        setHasAttemptedLoad(true);
+      });
+    }
+  }, [currentUser, entry, isHydrated, loadEntryById, params.entryId]);
+
+  if (isHydrated && hasAttemptedLoad && !entry) {
     return (
       <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-5xl space-y-6">

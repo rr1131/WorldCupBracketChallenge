@@ -275,6 +275,9 @@ def _build_fixture_state(
     home_score: int | None = None,
     away_score: int | None = None,
     winner_team: str | None = None,
+    sportsbook_name: str | None = None,
+    spread_line: str | None = None,
+    over_under_line: str | None = None,
 ) -> LiveFixtureState:
     """Create a normalized live-fixture record from fixture metadata."""
     return LiveFixtureState(
@@ -290,6 +293,9 @@ def _build_fixture_state(
         status=status,
         display_status=display_status,
         winner_team=winner_team,
+        sportsbook_name=sportsbook_name,
+        spread_line=spread_line,
+        over_under_line=over_under_line,
         espn_event_id=metadata["espn_event_id"],
         updated_at=updated_at,
     )
@@ -339,6 +345,68 @@ def _score_to_int(value: Any) -> int | None:
     if not text or not text.lstrip("-").isdigit():
         return None
     return int(text)
+
+
+def _odds_line(value: Any) -> str | None:
+    """Normalize a sportsbook line value into a displayable string."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _primary_odds(competition: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the first available competition odds payload."""
+    odds = competition.get("odds") or []
+    return odds[0] if odds else None
+
+
+def _format_spread_display(
+    odds: dict[str, Any] | None,
+    home_team: str | None,
+    away_team: str | None,
+) -> str | None:
+    """Build a compact spread label like 'MEX -1.5'."""
+    if not odds:
+        return None
+
+    point_spread = odds.get("pointSpread") or {}
+    home_line = _odds_line(((point_spread.get("home") or {}).get("close") or {}).get("line"))
+    away_line = _odds_line(((point_spread.get("away") or {}).get("close") or {}).get("line"))
+
+    if home_line and home_line.startswith("-") and home_team:
+        return f"{home_team} {home_line}"
+    if away_line and away_line.startswith("-") and away_team:
+        return f"{away_team} {away_line}"
+    if home_line and home_team:
+        return f"{home_team} {home_line}"
+    if away_line and away_team:
+        return f"{away_team} {away_line}"
+    return None
+
+
+def _format_over_under_display(odds: dict[str, Any] | None) -> str | None:
+    """Build a compact total label like '2.5'."""
+    if not odds:
+        return None
+
+    over_under = odds.get("overUnder")
+    if over_under is not None:
+        return str(over_under)
+
+    total = odds.get("total") or {}
+    over_close = ((total.get("over") or {}).get("close") or {}).get("line")
+    under_close = ((total.get("under") or {}).get("close") or {}).get("line")
+
+    for raw_line in (over_close, under_close):
+        line = _odds_line(raw_line)
+        if not line:
+            continue
+        if line[0].lower() in {"o", "u"}:
+            return line[1:]
+        return line
+
+    return None
 
 
 def _normalize_team_token(value: str | None) -> str | None:
@@ -450,6 +518,12 @@ def normalize_espn_event(
     away_team = _team_code(away_competitor)
     home_score = _score_to_int(home_competitor.get("score"))
     away_score = _score_to_int(away_competitor.get("score"))
+    primary_odds = _primary_odds(competition)
+    sportsbook_name = ((primary_odds or {}).get("provider") or {}).get("displayName")
+    if primary_odds and not sportsbook_name:
+        sportsbook_name = "DraftKings"
+    spread_line = _format_spread_display(primary_odds, home_team, away_team)
+    over_under_line = _format_over_under_display(primary_odds)
     winner_team = None
     if home_competitor.get("winner"):
         winner_team = home_team
@@ -466,6 +540,9 @@ def normalize_espn_event(
         home_score=home_score,
         away_score=away_score,
         winner_team=winner_team,
+        sportsbook_name=sportsbook_name,
+        spread_line=spread_line,
+        over_under_line=over_under_line,
     )
 
 

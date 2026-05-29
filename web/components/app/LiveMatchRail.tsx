@@ -53,6 +53,10 @@ function shouldShowStatusBadge(fixture: LiveFixture) {
   return fixture.status !== "scheduled";
 }
 
+function hasOdds(fixture: LiveFixture) {
+  return Boolean(fixture.spread_line || fixture.over_under_line);
+}
+
 function sortFixturesByKickoffProximity(fixtures: LiveFixture[]) {
   const now = Date.now();
 
@@ -210,20 +214,38 @@ export default function LiveMatchRail() {
                       {formatStageLabel(fixture)}
                     </div>
                   </div>
-                  {shouldShowStatusBadge(fixture) ? (
-                    <div
-                      className={[
-                        "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
-                        fixture.status === "final"
-                          ? "bg-[#fdeef0] text-[#8e1f29]"
-                          : fixture.status === "in_progress"
-                            ? "bg-[#fff4e4] text-[#9a4b0f]"
-                            : "bg-[#f7f1ee] text-[#6b5752]",
-                      ].join(" ")}
-                    >
-                      {fixture.display_status}
-                    </div>
-                  ) : null}
+                  <div className="flex flex-col items-end gap-2">
+                    {hasOdds(fixture) ? (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {fixture.spread_line ? (
+                          <div className="rounded-full border border-[rgba(146,86,76,0.12)] bg-[#fff8f7] px-3 py-1 text-[11px] font-semibold text-[#6b5752]">
+                            <span className="rr-soft mr-1 uppercase tracking-[0.16em]">Spread</span>
+                            <span className="text-[#251a18]">{fixture.spread_line}</span>
+                          </div>
+                        ) : null}
+                        {fixture.over_under_line ? (
+                          <div className="rounded-full border border-[rgba(146,86,76,0.12)] bg-[#fff8f7] px-3 py-1 text-[11px] font-semibold text-[#6b5752]">
+                            <span className="rr-soft mr-1 uppercase tracking-[0.16em]">O/U</span>
+                            <span className="text-[#251a18]">{fixture.over_under_line}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {shouldShowStatusBadge(fixture) ? (
+                      <div
+                        className={[
+                          "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                          fixture.status === "final"
+                            ? "bg-[#fdeef0] text-[#8e1f29]"
+                            : fixture.status === "in_progress"
+                              ? "bg-[#fff4e4] text-[#9a4b0f]"
+                              : "bg-[#f7f1ee] text-[#6b5752]",
+                        ].join(" ")}
+                      >
+                        {fixture.display_status}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -270,6 +292,7 @@ export default function LiveMatchRail() {
                     </div>
                   </div>
                 </div>
+
               </article>
             );
           })}

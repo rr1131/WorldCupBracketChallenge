@@ -126,10 +126,6 @@ export type AuthUser = {
   email: string;
 };
 
-export type RegisteredUser = AuthUser & {
-  password: string;
-};
-
 export type EntryStatus = "draft" | "knockout" | "scored";
 
 export type StoredEntry = {
@@ -158,9 +154,16 @@ export type PoolRecord = {
   invite_code: string;
   owner_id: string;
   owner_name: string;
-  member_ids: string[];
-  join_password?: string;
+  member_count: number;
+  entry_count: number;
+  is_password_protected: boolean;
   created_at: string;
+  updated_at: string;
+};
+
+export type PoolDetail = PoolRecord & {
+  is_locked: boolean;
+  entries: StoredEntry[];
 };
 
 export type LiveFixture = {
@@ -176,6 +179,9 @@ export type LiveFixture = {
   status: LiveFixtureStatus;
   display_status: string;
   winner_team?: string | null;
+  sportsbook_name?: string | null;
+  spread_line?: string | null;
+  over_under_line?: string | null;
   espn_event_id?: string | null;
   updated_at?: string | null;
 };
@@ -186,11 +192,4 @@ export type LiveScoreboard = {
   synced_at?: string | null;
   stale: boolean;
   fixtures: LiveFixture[];
-};
-
-export type PersistedAppState = {
-  current_user_id: string | null;
-  users: RegisteredUser[];
-  entries: StoredEntry[];
-  pools: PoolRecord[];
 };

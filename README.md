@@ -9,13 +9,13 @@ This repo currently has two main parts:
 
 ## Current State
 
-The frontend is mid-transition:
+The app now runs as a real two-service web product:
 
-- Most account, entry, and pool flows in `web/` are still stored in browser local storage
-- The entry builder still calls backend endpoints for knockout generation and scoring
-- The backend API exposes persisted entry and pool routes, but the current frontend is not fully wired to those routes yet
+- The FastAPI backend persists users, entries, pools, scores, and ESPN sync state
+- The Next.js frontend uses the backend API for auth, entry CRUD, pool CRUD, and pool joins
+- Live match data is cached server-side from ESPN and exposed to the browser through `/api/live/scoreboard`
 
-For local testing, the safest setup is to run both the backend and the frontend.
+For local testing and production deployment, run both the backend and the frontend.
 
 ## Repo Layout
 
@@ -36,8 +36,7 @@ Python `3.11+` is required.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install fastapi "uvicorn[standard]" pydantic sqlalchemy pyjwt pwdlib email-validator pytest
-python -m app.main init-db
+python -m pip install -e ".[dev]"
 uvicorn api:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -46,6 +45,7 @@ Notes:
 - By default the app creates a local SQLite database at `worldcup.db`
 - Default CORS origins are `http://localhost:3000` and `http://127.0.0.1:3000`
 - `SESSION_COOKIE_SECURE` defaults to `false` for local HTTP development
+- `create_database()` runs automatically on API startup
 
 ### Frontend
 
@@ -138,10 +138,10 @@ The backend reads configuration from environment variables.
 - `ESPN_MAPPING_PATH`: defaults to `config/espn_mapping.json`
 - `TRUTH_PATH`: defaults to `config/truth/woshisim.json`
 - `TRUTH_OVERRIDE_PATH`: defaults to `config/truth/override.json`
-- `TRUTH_PROVIDER`: defaults to `file`
+- `TRUTH_PROVIDER`: defaults to `espn_cached`
 - `ENTRY_LOCK_AT`: optional ISO timestamp for globally locking edits
 - `SESSION_COOKIE_SECURE`: defaults to `false`
-- `ESPN_SYNC_ENABLED`: defaults to `false`
+- `ESPN_SYNC_ENABLED`: defaults to `true`
 - `ESPN_POLL_INTERVAL_SECONDS`: defaults to `60`
 - `ESPN_SYNC_STALE_AFTER_SECONDS`: defaults to `300`
 
@@ -175,21 +175,67 @@ Stage 2 after the group stage:
 
 ## Frontend Notes
 
-The current UI ships with demo accounts in local storage:
-
-- `maya@example.com` / `demo1234`
-- `luca@example.com` / `demo1234`
-- `priya@example.com` / `demo1234`
+The main UI flow now expects a live backend session and persistent API data.
 
 The builder flow lives primarily in:
 
 - [`web/components/entry/EntryBuilder.tsx`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/web/components/entry/EntryBuilder.tsx)
 - [`web/components/providers/AppDataProvider.tsx`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/web/components/providers/AppDataProvider.tsx)
 
+## Deployment
+
+The repo now includes:
+
+- [`render.yaml`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/render.yaml): Render blueprint for one backend web service and one frontend web service
+- [`.env.example`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/.env.example): backend env template
+- [`web/.env.example`](/Users/rodrigoruiz/Documents/wosher/WorldCupBracketChallenge/web/.env.example): frontend env template
+
+Recommended production stack:
+
+- Neon Postgres for `DATABASE_URL`
+- Render web service for the FastAPI backend
+- Render web service for the Next.js frontend
+
+### Suggested Domains
+
+The easiest production setup is:
+
+- Frontend: `worldcup.ratracefantasy.com`
+- Backend: `api.ratracefantasy.com`
+
+Using `ratracefantasy.com/worldcup` is possible, but it requires a reverse proxy or CDN rule outside Render.
+That is an inference from Render's custom-domain model, which attaches at the host level rather than managing path-prefix routing for you.
+
+### Render / Neon Checklist
+
+1. Create a Neon Postgres project.
+2. Copy the pooled connection string and set `DATABASE_URL` with `sslmode=require`.
+3. Create two Render web services from this repo, or use the Blueprint flow with `render.yaml`.
+4. Set backend env vars:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `CORS_ORIGINS`
+   - `SESSION_COOKIE_SECURE=true`
+   - `TRUTH_PROVIDER=espn_cached`
+   - `ESPN_SYNC_ENABLED=true`
+5. Set frontend env vars:
+   - `NEXT_PUBLIC_API_BASE_URL`
+   - optionally `NEXT_PUBLIC_BASE_PATH` if you later serve the app under a path prefix
+6. Add your final custom domains in Render.
+7. Update `CORS_ORIGINS` to exactly match the final frontend origin(s).
+8. Redeploy the backend after changing ESPN mappings or production env values.
+
+### Blueprint Defaults
+
+The included `render.yaml` assumes:
+
+- backend service name: `worldcup-api`
+- frontend service name: `worldcup-web`
+- backend health check: `/api/healthz`
+- Node runtime: `20`
+- Python runtime: `3.11`
+
 ## Known Gaps
 
 - Some files under `testing/` are placeholders right now, so Python test coverage is incomplete
-- The frontend still mixes local-only state with backend-backed scoring requests
-- The builder currently posts to hard-coded backend URLs on `127.0.0.1:8000`
-- The frontend is not yet wired to the live ESPN scoreboard endpoint
 - Production deployment still assumes one backend instance owns the ESPN poller

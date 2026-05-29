@@ -26,11 +26,11 @@ export default function RegisterPage() {
     }
   }, [currentUser, isHydrated, nextHref, router]);
 
-  function submit() {
+  async function submit() {
     const outcome =
       mode === "register"
-        ? registerUser({ name, email, password })
-        : loginUser({ email, password });
+        ? await registerUser({ name, email, password })
+        : await loginUser({ email, password });
 
     if (!outcome.ok) {
       setError(outcome.message);
@@ -55,20 +55,9 @@ export default function RegisterPage() {
                 Register or log in to manage entries and pools.
               </h1>
               <p className="rr-body mt-4 max-w-xl text-base leading-7">
-                This prototype keeps accounts in local browser storage so you can test the
-                full signed-in flow right away.
+                Your account, entries, and pool memberships are stored on the live backend so
+                you can pick up the same bracket from any device.
               </p>
-
-              <div className="rr-card-soft mt-8 rounded-[28px] p-5">
-                <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.24em]">
-                  Demo accounts
-                </div>
-                <div className="rr-body mt-4 space-y-3 text-sm">
-                  <div>`maya@example.com` / `demo1234`</div>
-                  <div>`luca@example.com` / `demo1234`</div>
-                  <div>`priya@example.com` / `demo1234`</div>
-                </div>
-              </div>
             </div>
 
             <div className="rr-card-accent rounded-[30px] p-6">

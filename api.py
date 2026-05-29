@@ -20,6 +20,7 @@ from app.schemas import (
     EntrySimulationIn,
     LiveScoreboardOut,
     EntryUpdateIn,
+    JoinPoolIn,
     LoginIn,
     PoolDetailOut,
     PoolSummaryOut,
@@ -31,13 +32,15 @@ from app.service import (
     add_entry_to_pool,
     authenticate_user,
     create_entry_for_user,
-    create_pool_for_user,
+    create_pool_for_user_with_password,
     create_user,
+    delete_pool_for_owner,
     delete_entry_for_owner,
     entries_locked,
     generate_knockout_preview_for_entry,
     generate_knockout_preview_for_payload,
     get_entry_for_viewer,
+    get_pool_by_invite_code,
     get_pool_detail_for_user,
     get_user_from_token,
     join_pool_by_invite_code,
@@ -146,6 +149,12 @@ def score_entry_payload(payload: EntrySimulationIn) -> dict[str, Any]:
 def live_scoreboard() -> dict[str, Any]:
     """Return the latest cached live scoreboard snapshot for the browser."""
     return load_live_scoreboard_snapshot()
+
+
+@app.get("/api/healthz")
+def healthcheck() -> dict[str, str]:
+    """Return a simple healthcheck payload for hosting platforms."""
+    return {"status": "ok"}
 
 
 @app.post("/api/auth/register", response_model=AuthSessionOut)
@@ -297,7 +306,25 @@ def create_pool(
 ) -> dict[str, Any]:
     """Create a new pool."""
     try:
-        return create_pool_for_user(db, user, payload.name, payload.description)
+        return create_pool_for_user_with_password(
+            db,
+            user,
+            payload.name,
+            payload.description,
+            payload.join_password,
+        )
+    except ServiceError as error:
+        _raise_service_error(error)
+
+
+@app.get("/api/pools/invite/{invite_code}", response_model=PoolSummaryOut)
+def get_pool_by_invite(
+    invite_code: str,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Return public metadata for a pool invite."""
+    try:
+        return get_pool_by_invite_code(db, invite_code)
     except ServiceError as error:
         _raise_service_error(error)
 
@@ -318,14 +345,29 @@ def get_pool(
 @app.post("/api/pools/join/{invite_code}", response_model=PoolSummaryOut)
 def join_pool(
     invite_code: str,
+    payload: JoinPoolIn | None = None,
     user: Any = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Join a pool by invite code."""
     try:
-        return join_pool_by_invite_code(db, user, invite_code)
+        return join_pool_by_invite_code(db, user, invite_code, payload.password if payload else None)
     except ServiceError as error:
         _raise_service_error(error)
+
+
+@app.delete("/api/pools/{pool_id}")
+def delete_pool(
+    pool_id: str,
+    user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Delete a pool owned by the current user."""
+    try:
+        delete_pool_for_owner(db, user, pool_id)
+    except ServiceError as error:
+        _raise_service_error(error)
+    return {"ok": True}
 
 
 @app.post("/api/pools/{pool_id}/entries/{entry_id}")

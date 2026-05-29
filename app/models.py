@@ -204,6 +204,9 @@ class LiveFixtureState:
     status: str
     display_status: str
     winner_team: str | None
+    sportsbook_name: str | None
+    spread_line: str | None
+    over_under_line: str | None
     espn_event_id: str | None
     updated_at: datetime | None
 

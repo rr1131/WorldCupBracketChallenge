@@ -18,10 +18,12 @@ export default function NewEntryRedirectPage() {
       return;
     }
 
-    const created = createEntry();
-    if (created) {
-      router.replace(`/entries/${created.id}`);
-    }
+    void (async () => {
+      const created = await createEntry();
+      if (created) {
+        router.replace(`/entries/${created.id}`);
+      }
+    })();
   }, [createEntry, currentUser, isHydrated, router]);
 
   return (
