@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppHeader from "@/components/app/AppHeader";
@@ -8,7 +8,7 @@ import { useAppData } from "@/components/providers/AppDataProvider";
 
 type Mode = "register" | "login";
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentUser, isHydrated, loginUser, registerUser } = useAppData();
@@ -144,5 +144,13 @@ export default function RegisterPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

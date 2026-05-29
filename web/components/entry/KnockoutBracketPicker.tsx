@@ -21,6 +21,8 @@ type SlotPlacement = {
   span: number;
 };
 
+type SourceLookup = Record<string, [string | null, string | null]>;
+
 const LEFT_STAGE_LABELS = ["Round of 32", "R16", "QF", "SF"];
 const RIGHT_STAGE_LABELS = ["SF", "QF", "R16", "Round of 32"];
 
@@ -211,7 +213,7 @@ function MatchNode({
             slotId={slotId}
             side={side === "right" ? "right" : "left"}
             team={teams[0]}
-            placeholderSlotId={sourceSlots?.[0] ?? null}
+            placeholderSlotId={sourceSlots?.[0] ?? undefined}
             selectedWinner={selectedWinner}
             onSelectWinner={onSelectWinner}
           />
@@ -219,7 +221,7 @@ function MatchNode({
             slotId={slotId}
             side={side === "right" ? "right" : "left"}
             team={teams[1]}
-            placeholderSlotId={sourceSlots?.[1] ?? null}
+            placeholderSlotId={sourceSlots?.[1] ?? undefined}
             selectedWinner={selectedWinner}
             onSelectWinner={onSelectWinner}
           />
@@ -242,7 +244,7 @@ function BracketSide({
   labels: string[];
   side: "left" | "right";
   bracketLookup: Record<string, { home_team: string | null; away_team: string | null }>;
-  sourceLookup: Record<string, [string | null, string | null]>;
+  sourceLookup: SourceLookup;
   picksBySlot: KnockoutPickLookup;
   onSelectWinner: (slotId: string, winnerTeam: string) => void;
 }) {
@@ -310,7 +312,7 @@ export default function KnockoutBracketPicker({
   const bracketLookup = useMemo(() => flattenBracket(derivedBracket), [derivedBracket]);
   const finalMatch = bracketLookup.M104;
   const champion = picksBySlot.M104 ?? null;
-  const sourceLookup = useMemo(
+  const sourceLookup = useMemo<SourceLookup>(
     () => ({
       M73: [null, null],
       M74: [null, null],

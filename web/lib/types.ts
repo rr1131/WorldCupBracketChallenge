@@ -144,6 +144,16 @@ export type StoredEntry = {
   pool_ids: string[];
   score_total?: number | null;
   max_possible_points?: number | null;
+  match_points?: number | null;
+  standing_points?: number | null;
+  knockout_points?: number | null;
+  exact_order_count?: number | null;
+  top_two_bonus_count?: number | null;
+  champion_team?: string | null;
+  can_edit?: boolean;
+  can_delete?: boolean;
+  can_view_picks?: boolean;
+  is_locked?: boolean;
 };
 
 export type PoolRecord = {
