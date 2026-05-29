@@ -24,12 +24,12 @@ export default function EntryDetailPage() {
   const entry = getEntryById(params.entryId);
   const isEditable = canEditEntry(entry);
   const handleSave = useCallback(
-    (updates: Partial<StoredEntry>) => {
+    async (updates: Partial<StoredEntry>) => {
       if (!entry) {
-        return;
+        return null;
       }
 
-      void updateEntry(entry.id, updates);
+      return updateEntry(entry.id, updates);
     },
     [entry, updateEntry]
   );

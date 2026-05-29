@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import GroupCard from "@/components/entry/GroupCard";
 import KnockoutBracketPicker from "@/components/entry/KnockoutBracketPicker";
 import { buildApiUrl } from "@/lib/api";
@@ -37,7 +37,7 @@ type ManualThirdPlaceTiebreakDetail = {
 type EntryBuilderProps = {
   entry: StoredEntry;
   onDelete?: () => void;
-  onSave: (updates: Partial<StoredEntry>) => void;
+  onSave: (updates: Partial<StoredEntry>) => Promise<StoredEntry | null>;
 };
 
 function getMatchesForGroup(groupId: string) {
@@ -82,8 +82,11 @@ function toKnockoutLookup(entry: StoredEntry) {
 }
 
 export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderProps) {
+  const router = useRouter();
   const groupEditorRef = useRef<HTMLElement | null>(null);
   const lastSavedSnapshotRef = useRef<string>("");
+  const pendingSaveRef = useRef<{ snapshot: string; updates: Partial<StoredEntry> } | null>(null);
+  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const [phase, setPhase] = useState<BuildPhase>(() => {
     if (entry.knockout_preview) {
       return "knockout";
@@ -108,6 +111,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     entry.advancing_third_place_groups ?? []
   );
   const [isWorking, setIsWorking] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const groupProgress = useMemo(() => {
     return Object.fromEntries(
@@ -250,14 +254,50 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     lastSavedSnapshotRef.current = entrySnapshot;
   }, [entrySnapshot]);
 
+  const flushPendingSaves = useCallback(async () => {
+    if (activeSavePromiseRef.current) {
+      return activeSavePromiseRef.current;
+    }
+
+    const run = (async () => {
+      let didFail = false;
+
+      while (pendingSaveRef.current) {
+        const pendingSave = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        setSaveState("saving");
+
+        const savedEntry = await onSave(pendingSave.updates);
+        if (!savedEntry) {
+          didFail = true;
+          setSaveState("error");
+          setUiError("We couldn't save this entry right now. Please try again.");
+          break;
+        }
+
+        lastSavedSnapshotRef.current = pendingSave.snapshot;
+        setSaveState("saved");
+      }
+
+      activeSavePromiseRef.current = null;
+      return !didFail;
+    })();
+
+    activeSavePromiseRef.current = run;
+    return run;
+  }, [onSave]);
+
   useEffect(() => {
     if (draftSnapshot === entrySnapshot || draftSnapshot === lastSavedSnapshotRef.current) {
       return;
     }
 
-    lastSavedSnapshotRef.current = draftSnapshot;
-    onSave(saveDraft);
-  }, [draftSnapshot, entrySnapshot, onSave, saveDraft]);
+    pendingSaveRef.current = {
+      snapshot: draftSnapshot,
+      updates: saveDraft,
+    };
+    void flushPendingSaves();
+  }, [draftSnapshot, entrySnapshot, flushPendingSaves, saveDraft]);
 
   useEffect(() => {
     if (phase !== "groups" || !selectedGroupId) {
@@ -282,6 +322,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
   function updateEntryName(value: string) {
     setEntryName(value);
+    setSaveState("idle");
     resetPostGroupStageState();
   }
 
@@ -304,6 +345,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     };
 
     setPredictions(nextPredictions);
+    setSaveState("idle");
     resetPostGroupStageState();
 
     const matchesInGroup = getMatchesForGroup(match.group_id);
@@ -322,6 +364,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       return;
     }
 
+    setSaveState("idle");
     setKnockoutPicksBySlot((prev) => {
       const next = { ...prev };
 
@@ -340,6 +383,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       return;
     }
 
+    setSaveState("idle");
     setSelectedThirdPlaceGroups((prev) => {
       if (prev.includes(groupId)) {
         return prev.filter((current) => current !== groupId);
@@ -464,6 +508,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     }
 
     setPredictions(nextPredictions);
+    setSaveState("idle");
     setSelectedGroupId(null);
     resetPostGroupStageState();
   }
@@ -475,6 +520,28 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
     setKnockoutPicksBySlot(autofillKnockoutPickLookup(knockoutPreview.predicted_bracket));
     setUiError(null);
+    setSaveState("idle");
+  }
+
+  async function handleManualSave() {
+    pendingSaveRef.current = {
+      snapshot: draftSnapshot,
+      updates: saveDraft,
+    };
+    await flushPendingSaves();
+  }
+
+  async function handleBackToWizard() {
+    pendingSaveRef.current = {
+      snapshot: draftSnapshot,
+      updates: saveDraft,
+    };
+    const saved = await flushPendingSaves();
+    if (!saved) {
+      return;
+    }
+
+    router.push("/workspace");
   }
 
   const selectedGroup =
@@ -496,20 +563,23 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.34em]">
                   Entry Builder
                 </div>
-                <Link
-                  href="/workspace"
+                <button
+                  type="button"
+                  onClick={() => void handleBackToWizard()}
+                  disabled={isWorking || saveState === "saving"}
                   className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                 >
                   Back to My Wizard
-                </Link>
+                </button>
               </div>
 
               <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-[#251a18]">
                 Build the groups first, then advance into the knockout bracket.
               </h1>
               <p className="rr-body mt-3 max-w-3xl text-sm leading-6">
-                This entry auto-saves locally to your My Wizard area as you build it. Official points
-                will arrive automatically from live match results.
+                This entry auto-saves to your account as you build it, and you can save it
+                manually before heading back to My Wizard. Official points will arrive
+                automatically from live match results.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">
@@ -579,6 +649,14 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     >
                       Random Autofill Bracket
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleManualSave()}
+                      disabled={isWorking || saveState === "saving"}
+                      className="rr-primary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saveState === "saving" ? "Saving..." : "Save Entry"}
+                    </button>
                   </>
                 )}
 
@@ -593,7 +671,13 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 ) : null}
 
                 <div className="rr-badge rounded-2xl px-4 py-3 text-sm">
-                  {phase === "groups" ? "Group stage builder active" : knockoutStatusLabel}
+                  {saveState === "saving"
+                    ? "Saving latest changes..."
+                    : saveState === "saved"
+                      ? "All changes saved"
+                      : phase === "groups"
+                        ? "Group stage builder active"
+                        : knockoutStatusLabel}
                 </div>
               </div>
             </div>
@@ -609,7 +693,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                   3. Once all 12 groups are complete, build the knockout stage and click the
                   winning side through every round.
                 </p>
-                <p>4. Entry scores update when official results come in, not from manual simulation.</p>
+                <p>4. Entry scores update when official results come in.</p>
               </div>
             </div>
           </div>

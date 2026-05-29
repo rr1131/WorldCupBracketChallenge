@@ -48,8 +48,7 @@ export default function HomePage() {
               <p className="rr-body mt-6 max-w-2xl text-lg leading-8">
                 Welcome to the RatRace WC Bracket Challenge! Build every group, generate the
                 official knockout bracket, and let your entries score themselves as live World
-                Cup results roll in. Then drop your brackets into pools and chase the table with
-                everyone else.
+                Cup results roll in. Then drop your brackets into pools and let the results speak for themselves! Inshallah!
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">

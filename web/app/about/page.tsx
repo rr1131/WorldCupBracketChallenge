@@ -20,7 +20,7 @@ export default function AboutPage() {
               </h1>
               <p className="rr-body mt-3 max-w-3xl text-sm leading-7">
                 Every entry earns points from two major buckets: the group stage and the knockout
-                stage. Add those together and you get the full tournament score.
+                stage. Add those together and you get the full tournament score. EZ PZ!
               </p>
             </div>
 
@@ -54,7 +54,7 @@ export default function AboutPage() {
             <div className="rr-soft text-xs uppercase tracking-[0.18em]">Total MAX</div>
             <div className="mt-2 text-4xl font-semibold text-[#8e1f29]">756</div>
             <div className="rr-body mt-2 text-sm">
-              A perfect bracket across both stages reaches the full tournament ceiling.
+              A perfect bracket across both stages reaches the full tournament ceiling. 
             </div>
           </div>
         </section>
