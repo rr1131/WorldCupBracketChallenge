@@ -16,7 +16,7 @@ dependencies = [
   "SQLAlchemy>=2.0",
   "psycopg2-binary>=2.9",
   "PyJWT>=2.8",
-  "pwdlib>=0.2"
+  "pwdlib[argon2]>=0.2"
 ]
 
 [project.optional-dependencies]
