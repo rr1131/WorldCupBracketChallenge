@@ -109,11 +109,19 @@ export default function PoolDetailPage() {
   }
 
   async function handleJoinPool() {
+    if (!pool) {
+      return;
+    }
+
     const outcome = await joinPoolByInviteCode(pool.invite_code, joinPassword);
     setShareMessage(outcome.ok ? "You joined this pool." : outcome.message);
   }
 
   async function handleDeletePool() {
+    if (!pool) {
+      return;
+    }
+
     const confirmed = window.confirm(
       "Delete this pool? All pool memberships and attached pool entries will be removed."
     );

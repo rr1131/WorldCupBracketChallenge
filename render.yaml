@@ -10,7 +10,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_T8aiGKkLNvx5@ep-shiny-fire-aq27ct8r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: CORS_ORIGINS
