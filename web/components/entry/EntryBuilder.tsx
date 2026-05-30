@@ -493,12 +493,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       setPhase("knockout");
       setManualThirdPlaceTiebreak(null);
       setSelectedThirdPlaceGroups(data.advancing_third_place_groups ?? []);
-      const syncedEntry = await onSave({ knockout_picks: [] });
-      if (!syncedEntry) {
-        setSaveState("error");
-        setUiError("The knockout stage was built, but we couldn't sync it to your account yet.");
-        return;
-      }
       setSaveState("saved");
     } catch (error) {
       const message =
@@ -552,16 +546,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
         return;
       }
     }
-
-    if (knockoutPreview && !entry.knockout_preview) {
-      const syncedEntry = await onSave({ knockout_picks: entryPayload.knockout_picks ?? [] });
-      if (!syncedEntry) {
-        setSaveState("error");
-        setUiError("We couldn't sync this bracket to your account right now. Please try again.");
-        return;
-      }
-      setSaveState("saved");
-    }
   }
 
   async function handleBackToWizard() {
@@ -574,16 +558,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       if (!saved) {
         return;
       }
-    }
-
-    if (knockoutPreview && !entry.knockout_preview) {
-      const syncedEntry = await onSave({ knockout_picks: entryPayload.knockout_picks ?? [] });
-      if (!syncedEntry) {
-        setSaveState("error");
-        setUiError("We couldn't sync this bracket to your account right now. Please try again.");
-        return;
-      }
-      setSaveState("saved");
     }
 
     router.push("/workspace");

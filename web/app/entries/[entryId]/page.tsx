@@ -67,12 +67,10 @@ export default function EntryDetailPage() {
       return;
     }
 
-    if (!entry) {
-      void loadEntryById(params.entryId).finally(() => {
-        setHasAttemptedLoad(true);
-      });
-    }
-  }, [currentUser, entry, isHydrated, loadEntryById, params.entryId]);
+    void loadEntryById(params.entryId).finally(() => {
+      setHasAttemptedLoad(true);
+    });
+  }, [currentUser, isHydrated, loadEntryById, params.entryId]);
 
   if (isHydrated && hasAttemptedLoad && !entry) {
     return (
