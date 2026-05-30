@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import GroupCard from "@/components/entry/GroupCard";
 import KnockoutBracketPicker from "@/components/entry/KnockoutBracketPicker";
 import { buildApiUrl } from "@/lib/api";
-import { maxTotalPoints } from "@/lib/maxPoints";
 import type { StoredEntry } from "@/lib/types";
 import TeamBadge from "@/components/entry/TeamBadge";
 import tournament from "@/data/tournament.json";
@@ -84,7 +83,6 @@ function toKnockoutLookup(entry: StoredEntry) {
 export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderProps) {
   const router = useRouter();
   const groupEditorRef = useRef<HTMLElement | null>(null);
-  const lastSavedSnapshotRef = useRef<string>("");
   const pendingSaveRef = useRef<{ snapshot: string; updates: Partial<StoredEntry> } | null>(null);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const [phase, setPhase] = useState<BuildPhase>(() => {
@@ -198,61 +196,64 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     };
   }, [entryName, knockoutPicks, predictions, resolvedAdvancingThirdPlaceGroups]);
 
-  const saveDraft = useMemo(
-    () => ({
-      entry_name: entryName,
-      predictions: entryPayload.predictions,
-      advancing_third_place_groups: resolvedAdvancingThirdPlaceGroups,
-      knockout_picks: entryPayload.knockout_picks,
-      knockout_preview: knockoutPreview,
-      result: null,
-      score_total: null,
-      max_possible_points:
-        knockoutPreview !== null && knockoutPicks.length === totalKnockoutMatches
-          ? maxTotalPoints(typedTournament)
-          : null,
-      status: (knockoutPreview ? "knockout" : "draft") as StoredEntry["status"],
-    }),
-    [
-      entryName,
-      entryPayload.knockout_picks,
-      entryPayload.predictions,
-      knockoutPicks.length,
-      knockoutPreview,
-      resolvedAdvancingThirdPlaceGroups,
-      totalKnockoutMatches,
-    ]
+  const entryPredictionsSnapshot = useMemo(() => JSON.stringify(entry.predictions), [entry.predictions]);
+  const localPredictionsSnapshot = useMemo(
+    () => JSON.stringify(entryPayload.predictions),
+    [entryPayload.predictions]
+  );
+  const entryThirdPlaceSnapshot = useMemo(
+    () => JSON.stringify(entry.advancing_third_place_groups ?? null),
+    [entry.advancing_third_place_groups]
+  );
+  const localThirdPlaceSnapshot = useMemo(
+    () => JSON.stringify(resolvedAdvancingThirdPlaceGroups ?? null),
+    [resolvedAdvancingThirdPlaceGroups]
+  );
+  const entryKnockoutPicksSnapshot = useMemo(
+    () => JSON.stringify(entry.knockout_picks ?? null),
+    [entry.knockout_picks]
+  );
+  const localKnockoutPicksSnapshot = useMemo(
+    () => JSON.stringify(entryPayload.knockout_picks ?? null),
+    [entryPayload.knockout_picks]
   );
 
-  const entrySnapshot = useMemo(
-    () =>
-      JSON.stringify({
-        entry_name: entry.entry_name,
-        predictions: entry.predictions,
-        advancing_third_place_groups: entry.advancing_third_place_groups,
-        knockout_picks: entry.knockout_picks,
-        knockout_preview: entry.knockout_preview,
-        result: entry.result,
-        score_total: entry.score_total ?? null,
-        status: entry.status,
-      }),
-    [
-      entry.advancing_third_place_groups,
-      entry.entry_name,
-      entry.knockout_picks,
-      entry.knockout_preview,
-      entry.predictions,
-      entry.result,
-      entry.score_total,
-      entry.status,
-    ]
-  );
+  const persistedUpdates = useMemo(() => {
+    const updates: Partial<StoredEntry> = {};
 
-  const draftSnapshot = useMemo(() => JSON.stringify(saveDraft), [saveDraft]);
+    if (entryName !== entry.entry_name) {
+      updates.entry_name = entryName;
+    }
 
-  useEffect(() => {
-    lastSavedSnapshotRef.current = entrySnapshot;
-  }, [entrySnapshot]);
+    if (localPredictionsSnapshot !== entryPredictionsSnapshot) {
+      updates.predictions = entryPayload.predictions;
+    }
+
+    if (localThirdPlaceSnapshot !== entryThirdPlaceSnapshot) {
+      updates.advancing_third_place_groups = resolvedAdvancingThirdPlaceGroups;
+    }
+
+    if (localKnockoutPicksSnapshot !== entryKnockoutPicksSnapshot) {
+      updates.knockout_picks = entryPayload.knockout_picks;
+    }
+
+    return updates;
+  }, [
+    entry.entry_name,
+    entryKnockoutPicksSnapshot,
+    entryName,
+    entryPayload.knockout_picks,
+    entryPayload.predictions,
+    entryPredictionsSnapshot,
+    entryThirdPlaceSnapshot,
+    localKnockoutPicksSnapshot,
+    localPredictionsSnapshot,
+    localThirdPlaceSnapshot,
+    resolvedAdvancingThirdPlaceGroups,
+  ]);
+
+  const persistedSnapshot = useMemo(() => JSON.stringify(persistedUpdates), [persistedUpdates]);
+  const hasPersistedUpdates = Object.keys(persistedUpdates).length > 0;
 
   const flushPendingSaves = useCallback(async () => {
     if (activeSavePromiseRef.current) {
@@ -275,7 +276,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
           break;
         }
 
-        lastSavedSnapshotRef.current = pendingSave.snapshot;
         setSaveState("saved");
       }
 
@@ -288,16 +288,16 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
   }, [onSave]);
 
   useEffect(() => {
-    if (draftSnapshot === entrySnapshot || draftSnapshot === lastSavedSnapshotRef.current) {
+    if (!hasPersistedUpdates) {
       return;
     }
 
     pendingSaveRef.current = {
-      snapshot: draftSnapshot,
-      updates: saveDraft,
+      snapshot: persistedSnapshot,
+      updates: persistedUpdates,
     };
     void flushPendingSaves();
-  }, [draftSnapshot, entrySnapshot, flushPendingSaves, saveDraft]);
+  }, [flushPendingSaves, hasPersistedUpdates, persistedSnapshot, persistedUpdates]);
 
   useEffect(() => {
     if (phase !== "groups" || !selectedGroupId) {
@@ -400,10 +400,10 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
   async function handleApiRequest<T>(url: string) {
     const response = await fetch(url, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(entryPayload),
     });
 
     if (!response.ok) {
@@ -467,8 +467,19 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
     try {
       setIsWorking(true);
+      if (hasPersistedUpdates) {
+        pendingSaveRef.current = {
+          snapshot: persistedSnapshot,
+          updates: persistedUpdates,
+        };
+        const saved = await flushPendingSaves();
+        if (!saved) {
+          return;
+        }
+      }
+
       const data = await handleApiRequest<KnockoutBracketPreviewResponse>(
-        buildApiUrl("/api/generate-knockout-bracket")
+        buildApiUrl(`/api/entries/${entry.id}/knockout-preview`)
       );
 
       if (!data) {
@@ -482,6 +493,13 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       setPhase("knockout");
       setManualThirdPlaceTiebreak(null);
       setSelectedThirdPlaceGroups(data.advancing_third_place_groups ?? []);
+      const syncedEntry = await onSave({ knockout_picks: [] });
+      if (!syncedEntry) {
+        setSaveState("error");
+        setUiError("The knockout stage was built, but we couldn't sync it to your account yet.");
+        return;
+      }
+      setSaveState("saved");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown error while generating bracket.";
@@ -524,21 +542,48 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
   }
 
   async function handleManualSave() {
-    pendingSaveRef.current = {
-      snapshot: draftSnapshot,
-      updates: saveDraft,
-    };
-    await flushPendingSaves();
+    if (hasPersistedUpdates) {
+      pendingSaveRef.current = {
+        snapshot: persistedSnapshot,
+        updates: persistedUpdates,
+      };
+      const saved = await flushPendingSaves();
+      if (!saved) {
+        return;
+      }
+    }
+
+    if (knockoutPreview && !entry.knockout_preview) {
+      const syncedEntry = await onSave({ knockout_picks: entryPayload.knockout_picks ?? [] });
+      if (!syncedEntry) {
+        setSaveState("error");
+        setUiError("We couldn't sync this bracket to your account right now. Please try again.");
+        return;
+      }
+      setSaveState("saved");
+    }
   }
 
   async function handleBackToWizard() {
-    pendingSaveRef.current = {
-      snapshot: draftSnapshot,
-      updates: saveDraft,
-    };
-    const saved = await flushPendingSaves();
-    if (!saved) {
-      return;
+    if (hasPersistedUpdates) {
+      pendingSaveRef.current = {
+        snapshot: persistedSnapshot,
+        updates: persistedUpdates,
+      };
+      const saved = await flushPendingSaves();
+      if (!saved) {
+        return;
+      }
+    }
+
+    if (knockoutPreview && !entry.knockout_preview) {
+      const syncedEntry = await onSave({ knockout_picks: entryPayload.knockout_picks ?? [] });
+      if (!syncedEntry) {
+        setSaveState("error");
+        setUiError("We couldn't sync this bracket to your account right now. Please try again.");
+        return;
+      }
+      setSaveState("saved");
     }
 
     router.push("/workspace");
