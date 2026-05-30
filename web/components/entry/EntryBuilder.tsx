@@ -85,6 +85,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
   const groupEditorRef = useRef<HTMLElement | null>(null);
   const pendingSaveRef = useRef<{ snapshot: string; updates: Partial<StoredEntry> } | null>(null);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<BuildPhase>(() => {
     if (entry.knockout_preview) {
       return "knockout";
@@ -256,6 +257,11 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
   const hasPersistedUpdates = Object.keys(persistedUpdates).length > 0;
 
   const flushPendingSaves = useCallback(async () => {
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
     if (activeSavePromiseRef.current) {
       return activeSavePromiseRef.current;
     }
@@ -289,14 +295,31 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
   useEffect(() => {
     if (!hasPersistedUpdates) {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
       return;
     }
 
-    pendingSaveRef.current = {
-      snapshot: persistedSnapshot,
-      updates: persistedUpdates,
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = window.setTimeout(() => {
+      pendingSaveRef.current = {
+        snapshot: persistedSnapshot,
+        updates: persistedUpdates,
+      };
+      void flushPendingSaves();
+    }, 700);
+
+    return () => {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
     };
-    void flushPendingSaves();
   }, [flushPendingSaves, hasPersistedUpdates, persistedSnapshot, persistedUpdates]);
 
   useEffect(() => {
@@ -585,7 +608,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 <button
                   type="button"
                   onClick={() => void handleBackToWizard()}
-                  disabled={isWorking || saveState === "saving"}
+                  disabled={isWorking}
                   className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-semibold"
                 >
                   Back to My Wizard
@@ -671,7 +694,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     <button
                       type="button"
                       onClick={() => void handleManualSave()}
-                      disabled={isWorking || saveState === "saving"}
+                      disabled={isWorking}
                       className="rr-primary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saveState === "saving" ? "Saving..." : "Save Entry"}
