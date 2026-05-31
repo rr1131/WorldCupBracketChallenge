@@ -145,6 +145,13 @@ def normalize_knockout_picks(knockout_picks: Sequence[dict[str, Any]] | None) ->
     return normalized or None
 
 
+def _normalize_group_list(group_ids: Sequence[str] | None) -> list[str] | None:
+    """Normalize advancing-third-place group ids for stable comparisons."""
+    if not group_ids:
+        return None
+    return sorted(str(group_id) for group_id in group_ids)
+
+
 def _entry_pool_ids(entry: Entry) -> list[str]:
     """Return the pool ids attached to an entry."""
     return sorted(link.pool_id for link in entry.pool_links)
@@ -584,14 +591,38 @@ def update_entry_for_owner(
 
     entry = _require_entry_owner(session, user.id, entry_id)
     before_state = _debug_entry_state(entry)
-    predictions_changed = "predictions" in payload or "advancing_third_place_groups" in payload
-    knockout_changed = "knockout_picks" in payload
+    current_predictions = normalize_predictions(entry.predictions)
+    incoming_predictions = (
+        normalize_predictions(payload["predictions"])
+        if "predictions" in payload
+        else current_predictions
+    )
+    current_third_place_groups = _normalize_group_list(entry.advancing_third_place_groups)
+    incoming_third_place_groups = (
+        _normalize_group_list(payload["advancing_third_place_groups"])
+        if "advancing_third_place_groups" in payload
+        else current_third_place_groups
+    )
+    current_knockout_picks = normalize_knockout_picks(entry.knockout_picks)
+    incoming_knockout_picks = (
+        normalize_knockout_picks(payload["knockout_picks"])
+        if "knockout_picks" in payload
+        else current_knockout_picks
+    )
+
+    predictions_changed = "predictions" in payload and incoming_predictions != current_predictions
+    third_place_groups_changed = (
+        "advancing_third_place_groups" in payload
+        and incoming_third_place_groups != current_third_place_groups
+    )
+    knockout_changed = "knockout_picks" in payload and incoming_knockout_picks != current_knockout_picks
     logger.info(
-        "update_entry_for_owner start user_id=%s entry_id=%s payload_keys=%s predictions_changed_flag=%s knockout_changed_flag=%s before=%s",
+        "update_entry_for_owner start user_id=%s entry_id=%s payload_keys=%s predictions_changed=%s third_place_groups_changed=%s knockout_changed=%s before=%s",
         user.id,
         entry_id,
         sorted(payload.keys()),
         predictions_changed,
+        third_place_groups_changed,
         knockout_changed,
         before_state,
     )
@@ -603,17 +634,19 @@ def update_entry_for_owner(
         entry.entry_name = next_name
 
     if "predictions" in payload:
-        entry.predictions = normalize_predictions(payload["predictions"])
+        entry.predictions = incoming_predictions
 
     if "advancing_third_place_groups" in payload:
-        entry.advancing_third_place_groups = payload["advancing_third_place_groups"]
+        entry.advancing_third_place_groups = incoming_third_place_groups
 
     if "knockout_picks" in payload:
-        entry.knockout_picks = normalize_knockout_picks(payload["knockout_picks"])
+        entry.knockout_picks = incoming_knockout_picks
 
-    if predictions_changed:
+    group_stage_changed = predictions_changed or third_place_groups_changed
+
+    if group_stage_changed:
         logger.info(
-            "update_entry_for_owner clearing_knockout_state user_id=%s entry_id=%s reason=predictions_or_third_place_in_payload current_pick_count=%s preview_present=%s",
+            "update_entry_for_owner clearing_knockout_state user_id=%s entry_id=%s reason=actual_group_stage_change current_pick_count=%s preview_present=%s",
             user.id,
             entry_id,
             len(entry.knockout_picks or []),
@@ -622,7 +655,7 @@ def update_entry_for_owner(
         entry.knockout_preview = None
         entry.knockout_picks = None
 
-    if predictions_changed or knockout_changed:
+    if group_stage_changed or knockout_changed:
         entry.result_payload = None
         entry.score_total = None
         entry.max_possible_points = None
