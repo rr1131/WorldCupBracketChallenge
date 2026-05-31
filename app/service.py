@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 from functools import lru_cache
+import logging
 from typing import Any, Iterable, Sequence
 from uuid import uuid4
 
@@ -42,6 +43,8 @@ from .validator import (
     validate_tournament_config,
     validate_truth_config,
 )
+
+logger = logging.getLogger("worldcup.service")
 
 
 class ServiceError(Exception):
@@ -172,6 +175,22 @@ def _entry_status(entry: Entry) -> str:
     if entry.knockout_preview is not None:
         return "knockout"
     return "draft"
+
+
+def _debug_entry_state(entry: Entry) -> dict[str, Any]:
+    """Return a compact debug summary for persisted entry state."""
+    return {
+        "entry_id": entry.id,
+        "status": entry.status,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+        "prediction_count": len(entry.predictions or []),
+        "third_place_groups": list(entry.advancing_third_place_groups or []),
+        "knockout_preview_present": entry.knockout_preview is not None,
+        "knockout_pick_count": len(entry.knockout_picks or []),
+        "champion_team": _champion_team(entry),
+        "score_total": entry.score_total,
+        "max_possible_points": entry.max_possible_points,
+    }
 
 
 def _serialize_standings(standings: dict[str, GroupStanding]) -> dict[str, list[dict[str, Any]]]:
@@ -529,6 +548,12 @@ def list_entries_for_user(session: Session, user: User) -> list[dict[str, Any]]:
         entries.sort(key=_entry_sort_key)
     else:
         entries.sort(key=lambda entry: entry.updated_at, reverse=True)
+    logger.info(
+        "list_entries_for_user user_id=%s count=%s states=%s",
+        user.id,
+        len(entries),
+        [_debug_entry_state(entry) for entry in entries],
+    )
     return [_serialize_entry(entry, viewer_user_id=user.id, include_sensitive=True) for entry in entries]
 
 
@@ -538,6 +563,7 @@ def get_entry_for_viewer(session: Session, user: User, entry_id: str) -> dict[st
     if entry is None:
         raise ServiceError("Entry not found.", status_code=404)
     if entry.owner_id == user.id:
+        logger.info("get_entry_for_viewer owner user_id=%s state=%s", user.id, _debug_entry_state(entry))
         return _serialize_entry(entry, viewer_user_id=user.id, include_sensitive=True)
     if not entries_locked():
         raise ServiceError("You can view other users' picks after entries lock.", status_code=403)
@@ -557,8 +583,18 @@ def update_entry_for_owner(
         raise ServiceError("Entries are locked and can no longer be edited.", status_code=403)
 
     entry = _require_entry_owner(session, user.id, entry_id)
+    before_state = _debug_entry_state(entry)
     predictions_changed = "predictions" in payload or "advancing_third_place_groups" in payload
     knockout_changed = "knockout_picks" in payload
+    logger.info(
+        "update_entry_for_owner start user_id=%s entry_id=%s payload_keys=%s predictions_changed_flag=%s knockout_changed_flag=%s before=%s",
+        user.id,
+        entry_id,
+        sorted(payload.keys()),
+        predictions_changed,
+        knockout_changed,
+        before_state,
+    )
 
     if "entry_name" in payload and payload["entry_name"] is not None:
         next_name = str(payload["entry_name"]).strip()
@@ -576,6 +612,13 @@ def update_entry_for_owner(
         entry.knockout_picks = normalize_knockout_picks(payload["knockout_picks"])
 
     if predictions_changed:
+        logger.info(
+            "update_entry_for_owner clearing_knockout_state user_id=%s entry_id=%s reason=predictions_or_third_place_in_payload current_pick_count=%s preview_present=%s",
+            user.id,
+            entry_id,
+            len(entry.knockout_picks or []),
+            entry.knockout_preview is not None,
+        )
         entry.knockout_preview = None
         entry.knockout_picks = None
 
@@ -593,6 +636,12 @@ def update_entry_for_owner(
     session.commit()
     refreshed = session.scalar(_entry_query().where(Entry.id == entry.id))
     assert refreshed is not None
+    logger.info(
+        "update_entry_for_owner complete user_id=%s entry_id=%s after=%s",
+        user.id,
+        entry_id,
+        _debug_entry_state(refreshed),
+    )
     return _serialize_entry(refreshed, viewer_user_id=user.id, include_sensitive=True)
 
 
@@ -810,6 +859,12 @@ def generate_knockout_preview_for_entry(session: Session, user: User, entry_id: 
 
     tournament = load_tournament()
     entry = _require_entry_owner(session, user.id, entry_id)
+    logger.info(
+        "generate_knockout_preview_for_entry start user_id=%s entry_id=%s before=%s",
+        user.id,
+        entry_id,
+        _debug_entry_state(entry),
+    )
     complete_entry = _build_complete_entry(entry)
     predicted_standings = compute_all_group_standings(
         tournament=tournament,
@@ -841,6 +896,12 @@ def generate_knockout_preview_for_entry(session: Session, user: User, entry_id: 
     entry.top_two_bonus_count = None
     entry.status = "knockout"
     session.commit()
+    logger.info(
+        "generate_knockout_preview_for_entry complete user_id=%s entry_id=%s after=%s",
+        user.id,
+        entry_id,
+        _debug_entry_state(entry),
+    )
     return payload
 
 
