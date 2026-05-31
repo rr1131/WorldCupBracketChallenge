@@ -53,6 +53,7 @@ type AppDataContextValue = {
   currentUser: AuthUser | null;
   entries: StoredEntry[];
   pools: PoolRecord[];
+  refreshWorkspaceData: () => Promise<void>;
   registerUser: (input: RegisterInput) => Promise<ActionResult>;
   loginUser: (input: LoginInput) => Promise<ActionResult>;
   logoutUser: () => Promise<void>;
@@ -235,6 +236,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setEntryCache({});
       setPools([]);
       setPoolDetails({});
+      setInvitePools({});
     } finally {
       setIsHydrated(true);
     }
@@ -243,6 +245,50 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void bootstrapSession();
   }, [bootstrapSession]);
+
+  const refreshWorkspaceData = useCallback(async () => {
+    try {
+      const session = await requestApi<ApiAuthSession>("/api/auth/me");
+      setCurrentUser(normalizeUser(session.current_user));
+      await Promise.all([refreshEntries(), refreshPools()]);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await bootstrapSession();
+        return;
+      }
+
+      console.error(error);
+    }
+  }, [bootstrapSession, refreshEntries, refreshPools]);
+
+  useEffect(() => {
+    if (!isHydrated || !currentUser) {
+      return;
+    }
+
+    const handleFocus = () => {
+      void refreshWorkspaceData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshWorkspaceData();
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshWorkspaceData();
+    }, 30000);
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [currentUser, isHydrated, refreshWorkspaceData]);
 
   const registerUser = useCallback(async (input: RegisterInput): Promise<ActionResult> => {
     const name = input.name.trim();
@@ -589,6 +635,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       currentUser,
       entries,
       pools,
+      refreshWorkspaceData,
       registerUser,
       loginUser,
       logoutUser,
@@ -619,6 +666,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       deleteEntry,
       deletePool,
       entries,
+      refreshWorkspaceData,
       getEntryById,
       getPoolById,
       getPoolByInviteCode,

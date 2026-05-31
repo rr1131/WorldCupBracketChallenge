@@ -558,19 +558,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     setSaveState("idle");
   }
 
-  async function handleManualSave() {
-    if (hasPersistedUpdates) {
-      pendingSaveRef.current = {
-        snapshot: persistedSnapshot,
-        updates: persistedUpdates,
-      };
-      const saved = await flushPendingSaves();
-      if (!saved) {
-        return;
-      }
-    }
-  }
-
   async function handleBackToWizard() {
     if (hasPersistedUpdates) {
       pendingSaveRef.current = {
@@ -693,11 +680,11 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     </button>
                     <button
                       type="button"
-                      onClick={() => void handleManualSave()}
+                      onClick={() => void handleBackToWizard()}
                       disabled={isWorking}
                       className="rr-primary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {saveState === "saving" ? "Saving..." : "Save Entry"}
+                      {saveState === "saving" ? "Saving..." : "Save and Close"}
                     </button>
                   </>
                 )}

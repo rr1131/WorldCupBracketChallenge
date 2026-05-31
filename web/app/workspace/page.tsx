@@ -32,6 +32,7 @@ export default function WorkspacePage() {
     isHydrated,
     isUserInPool,
     pools,
+    refreshWorkspaceData,
   } = useAppData();
   const [tab, setTab] = useState<WorkspaceTab>("entries");
   const [newPoolName, setNewPoolName] = useState("");
@@ -53,6 +54,14 @@ export default function WorkspacePage() {
       router.replace("/register?next=/workspace");
     }
   }, [currentUser, isHydrated, router]);
+
+  useEffect(() => {
+    if (!isHydrated || !currentUser) {
+      return;
+    }
+
+    void refreshWorkspaceData();
+  }, [currentUser, isHydrated, refreshWorkspaceData]);
 
   async function handleCreateEntry() {
     const created = await createEntry();
