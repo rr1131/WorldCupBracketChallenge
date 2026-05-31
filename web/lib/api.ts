@@ -6,12 +6,18 @@ function normalizeBaseUrl(value: string) {
 
 export function getApiBaseUrl() {
   const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (process.env.NODE_ENV !== "development") {
+    return "";
+  }
+
   return normalizeBaseUrl(configuredBaseUrl || DEFAULT_API_BASE_URL);
 }
 
 export function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${getApiBaseUrl()}${normalizedPath}`;
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}${normalizedPath}`;
 }
 
 export class ApiError extends Error {
