@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -172,6 +173,7 @@ function toFriendlyError(error: unknown, fallback: string) {
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
+  const isRefreshingRef = useRef(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [entries, setEntries] = useState<StoredEntry[]>([]);
@@ -247,6 +249,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [bootstrapSession]);
 
   const refreshWorkspaceData = useCallback(async () => {
+    if (isRefreshingRef.current) {
+      return;
+    }
+
+    isRefreshingRef.current = true;
+
     try {
       const session = await requestApi<ApiAuthSession>("/api/auth/me");
       setCurrentUser(normalizeUser(session.current_user));
@@ -258,6 +266,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
 
       console.error(error);
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, [bootstrapSession, refreshEntries, refreshPools]);
 
@@ -276,15 +286,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const intervalId = window.setInterval(() => {
-      void refreshWorkspaceData();
-    }, 30000);
-
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };

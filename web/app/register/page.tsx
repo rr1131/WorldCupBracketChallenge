@@ -40,6 +40,11 @@ function RegisterPageContent() {
     router.push(nextHref);
   }
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submit();
+  }
+
   return (
     <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl space-y-8">
@@ -81,7 +86,7 @@ function RegisterPageContent() {
                 ))}
               </div>
 
-              <div className="mt-6 space-y-4">
+              <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
                 {mode === "register" ? (
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium rr-body">
@@ -126,8 +131,7 @@ function RegisterPageContent() {
                 ) : null}
 
                 <button
-                  type="button"
-                  onClick={submit}
+                  type="submit"
                   disabled={!isHydrated}
                   className="rr-primary-btn w-full rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -137,7 +141,7 @@ function RegisterPageContent() {
                 <Link href="/" className="rr-link block text-center text-sm underline-offset-4 hover:underline">
                   Back to homepage
                 </Link>
-              </div>
+              </form>
             </div>
           </div>
         </section>
