@@ -110,7 +110,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     entry.advancing_third_place_groups ?? []
   );
   const [isWorking, setIsWorking] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const groupProgress = useMemo(() => {
     return Object.fromEntries(
@@ -176,17 +175,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
     return buildKnockoutPicks(knockoutPreview.predicted_bracket, knockoutPicksBySlot);
   }, [knockoutPicksBySlot, knockoutPreview]);
-
-  const totalKnockoutMatches = useMemo(() => {
-    if (!knockoutPreview) {
-      return 0;
-    }
-
-    return Object.values(knockoutPreview.predicted_bracket).reduce(
-      (sum, matches) => sum + (matches?.length ?? 0),
-      0
-    );
-  }, [knockoutPreview]);
 
   const entryPayload: EntryPayload = useMemo(() => {
     return {
@@ -272,17 +260,13 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       while (pendingSaveRef.current) {
         const pendingSave = pendingSaveRef.current;
         pendingSaveRef.current = null;
-        setSaveState("saving");
 
         const savedEntry = await onSave(pendingSave.updates);
         if (!savedEntry) {
           didFail = true;
-          setSaveState("error");
           setUiError("We couldn't save this entry right now. Please try again.");
           break;
         }
-
-        setSaveState("saved");
       }
 
       activeSavePromiseRef.current = null;
@@ -345,7 +329,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
   function updateEntryName(value: string) {
     setEntryName(value);
-    setSaveState("idle");
     resetPostGroupStageState();
   }
 
@@ -368,7 +351,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     };
 
     setPredictions(nextPredictions);
-    setSaveState("idle");
     resetPostGroupStageState();
 
     const matchesInGroup = getMatchesForGroup(match.group_id);
@@ -387,7 +369,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       return;
     }
 
-    setSaveState("idle");
     setKnockoutPicksBySlot((prev) => {
       const next = { ...prev };
 
@@ -406,7 +387,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       return;
     }
 
-    setSaveState("idle");
     setSelectedThirdPlaceGroups((prev) => {
       if (prev.includes(groupId)) {
         return prev.filter((current) => current !== groupId);
@@ -516,7 +496,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       setPhase("knockout");
       setManualThirdPlaceTiebreak(null);
       setSelectedThirdPlaceGroups(data.advancing_third_place_groups ?? []);
-      setSaveState("saved");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown error while generating bracket.";
@@ -543,7 +522,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     }
 
     setPredictions(nextPredictions);
-    setSaveState("idle");
     setSelectedGroupId(null);
     resetPostGroupStageState();
   }
@@ -555,7 +533,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
     setKnockoutPicksBySlot(autofillKnockoutPickLookup(knockoutPreview.predicted_bracket));
     setUiError(null);
-    setSaveState("idle");
   }
 
   async function handleBackToWizard() {
@@ -577,10 +554,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     selectedGroupId === null
       ? null
       : typedTournament.groups.find((group) => group.id === selectedGroupId) ?? null;
-
-  const knockoutStatusLabel = knockoutPreview
-    ? `${knockoutPicks.length} / ${totalKnockoutMatches} knockout picks locked`
-    : "Knockout stage not built yet";
 
   return (
     <main className="rr-page min-h-screen px-4 py-8 text-slate-950 sm:px-6">
@@ -690,16 +663,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     Delete Entry
                   </button>
                 ) : null}
-
-                <div className="rr-badge rounded-2xl px-4 py-3 text-sm">
-                  {saveState === "saving"
-                    ? "Saving latest changes..."
-                    : saveState === "saved"
-                      ? "All changes saved"
-                      : phase === "groups"
-                        ? "Group stage builder active"
-                        : knockoutStatusLabel}
-                </div>
               </div>
             </div>
 
