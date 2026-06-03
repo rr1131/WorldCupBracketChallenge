@@ -678,14 +678,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     >
                       Random Autofill Bracket
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleBackToWizard()}
-                      disabled={isWorking}
-                      className="rr-primary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {saveState === "saving" ? "Saving..." : "Save and Close"}
-                    </button>
                   </>
                 )}
 
