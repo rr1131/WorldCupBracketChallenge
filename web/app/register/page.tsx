@@ -55,8 +55,7 @@ function RegisterPageContent() {
                 Register or log in to manage entries and pools.
               </h1>
               <p className="rr-body mt-4 max-w-xl text-base leading-7">
-                Your account, entries, and pool memberships are stored on the live backend so
-                you can pick up the same bracket from any device.
+                You don't need to use a real email, this is just so I can link your entries to each user. 
               </p>
             </div>
 
