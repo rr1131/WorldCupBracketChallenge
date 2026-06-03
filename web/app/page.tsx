@@ -84,7 +84,7 @@ export default function HomePage() {
             <div className="grid gap-4">
               <div className="rr-card rounded-[28px] p-6">
                 <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.26em]">
-                  Builder Flow
+                  How to Play
                 </div>
                 <div className="mt-5 space-y-4">
                   {[
@@ -104,12 +104,12 @@ export default function HomePage() {
 
               <div className="rr-card-accent rounded-[28px] p-6">
                 <div className="rr-kicker text-xs font-semibold uppercase tracking-[0.26em]">
-                  Signed-In My Wizard
+                  My Wizard
                 </div>
                 <div className="rr-body mt-4 text-sm leading-7">
                   Once you&apos;re signed in, your My Wizard area gives you two clean tabs:
                   entries for building and editing your own submissions, and pools for
-                  leaderboard-driven competition.
+                  seeing where you stack up on the leaderboard. 
                 </div>
               </div>
             </div>
