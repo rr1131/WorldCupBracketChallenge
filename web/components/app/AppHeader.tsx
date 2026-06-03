@@ -7,11 +7,13 @@ import { useAppData } from "@/components/providers/AppDataProvider";
 type AppHeaderProps = {
   showWorkspaceLink?: boolean;
   showCreateButton?: boolean;
+  showAuthLink?: boolean;
 };
 
 export default function AppHeader({
   showWorkspaceLink = true,
   showCreateButton = true,
+  showAuthLink = true,
 }: AppHeaderProps) {
   const router = useRouter();
   const { currentUser, createEntry, logoutUser } = useAppData();
@@ -66,14 +68,14 @@ export default function AppHeader({
             >
             Log out
           </button>
-        ) : (
+        ) : showAuthLink ? (
           <Link
             href="/register"
             className="rr-secondary-btn rounded-full px-4 py-2 text-sm font-medium"
           >
             Login
           </Link>
-        )}
+        ) : null}
       </div>
     </header>
   );

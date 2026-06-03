@@ -35,7 +35,11 @@ export default function HomePage() {
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-8">
         <section className="rr-frame rounded-[34px] p-6 md:p-8">
-          <AppHeader showWorkspaceLink={Boolean(currentUser)} showCreateButton={false} />
+          <AppHeader
+            showWorkspaceLink={Boolean(currentUser)}
+            showCreateButton={false}
+            showAuthLink={false}
+          />
 
           <div className="mt-12 grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div>
@@ -52,28 +56,29 @@ export default function HomePage() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <button
-                  type="button"
-                  onClick={handleCreateEntry}
-                  disabled={!isHydrated}
-                  className="rr-primary-btn rounded-full px-7 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Create Entry
-                </button>
-
                 {currentUser ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push("/workspace")}
-                    className="rr-secondary-btn rounded-full px-7 py-3 text-base font-semibold"
-                  >
-                    Open My Wizard
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCreateEntry}
+                      disabled={!isHydrated}
+                      className="rr-primary-btn rounded-full px-7 py-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Create Entry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/workspace")}
+                      className="rr-secondary-btn rounded-full px-7 py-3 text-base font-semibold"
+                    >
+                      Open My Wizard
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="button"
                     onClick={() => router.push("/register")}
-                    className="rr-secondary-btn rounded-full px-7 py-3 text-base font-semibold"
+                    className="rr-primary-btn rounded-full px-7 py-3 text-base font-semibold"
                   >
                     Register or Login
                   </button>

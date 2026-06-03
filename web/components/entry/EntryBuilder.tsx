@@ -329,7 +329,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
 
   function updateEntryName(value: string) {
     setEntryName(value);
-    resetPostGroupStageState();
+    setUiError(null);
   }
 
   function updatePrediction(
@@ -353,15 +353,6 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     setPredictions(nextPredictions);
     resetPostGroupStageState();
 
-    const matchesInGroup = getMatchesForGroup(match.group_id);
-    const groupIsComplete = matchesInGroup.every((groupMatch) => {
-      const prediction = nextPredictions[groupMatch.id];
-      return prediction.home_score !== "" && prediction.away_score !== "";
-    });
-
-    if (groupIsComplete) {
-      setSelectedGroupId(null);
-    }
   }
 
   function updateKnockoutPick(slotId: string, winnerTeam: string) {
@@ -579,9 +570,8 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 Build the groups first, then advance into the knockout bracket.
               </h1>
               <p className="rr-body mt-3 max-w-3xl text-sm leading-6">
-                This entry auto-saves to your account as you build it, and you can save it
-                manually before heading back to My Wizard. Official points will arrive
-                automatically from live match results.
+                This entry auto-saves to your account as you build it. Official points will
+                arrive automatically from live match results.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">
@@ -612,17 +602,9 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                {phase === "groups" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => autofillGroupStage()}
-                      disabled={isWorking}
-                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Random Autofill Groups
-                    </button>
+              <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap gap-3">
+                  {phase === "groups" ? (
                     <button
                       type="button"
                       onClick={generateKnockoutBracket}
@@ -631,11 +613,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     >
                       {isWorking ? "Building..." : "Fill Out Knockout Stage ->"}
                     </button>
-                  </>
-                )}
-
-                {phase === "knockout" && (
-                  <>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => setPhase("groups")}
@@ -643,26 +621,43 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     >
                       Back to Groups
                     </button>
+                  )}
+
+                  {onDelete ? (
+                    <button
+                      type="button"
+                      onClick={onDelete}
+                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold"
+                    >
+                      Delete Entry
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="rr-soft px-1 text-[11px] font-semibold uppercase tracking-[0.18em]">
+                    Quick Fill
+                  </div>
+                  {phase === "groups" ? (
+                    <button
+                      type="button"
+                      onClick={() => autofillGroupStage()}
+                      disabled={isWorking}
+                      className="rr-secondary-btn rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Random Groups
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={autofillKnockoutStage}
                       disabled={isWorking}
-                      className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rr-secondary-btn rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Random Autofill Bracket
+                      Random Bracket
                     </button>
-                  </>
-                )}
-
-                {onDelete ? (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    className="rr-secondary-btn rounded-2xl px-5 py-3 font-semibold"
-                  >
-                    Delete Entry
-                  </button>
-                ) : null}
+                  )}
+                </div>
               </div>
             </div>
 
@@ -792,7 +787,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
                     onClick={() =>
                       autofillGroupStage(getMatchesForGroup(selectedGroup.id).map((match) => match.id))
                     }
-                    className="rr-secondary-btn rounded-2xl px-4 py-3 text-sm font-semibold"
+                    className="rr-secondary-btn rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em]"
                   >
                     Random Autofill This Group
                   </button>

@@ -153,9 +153,6 @@ export default function LiveMatchRail() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rr-badge rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em]">
-            {scoreboard?.sync_status ?? (loading ? "Loading" : "Offline")}
-          </div>
           {scoreboard?.stale ? (
             <div className="rr-inline-note rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em]">
               Stale feed

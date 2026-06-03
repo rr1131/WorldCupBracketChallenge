@@ -33,7 +33,7 @@ export default function MatchCard({
         <input
           type="number"
           min="0"
-          className="rr-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
+          className="rr-input rr-score-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
           value={prediction.home_score}
           onChange={(e) => onChange(match.id, "home_score", e.target.value)}
         />
@@ -41,7 +41,7 @@ export default function MatchCard({
         <input
           type="number"
           min="0"
-          className="rr-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
+          className="rr-input rr-score-input h-10 rounded-xl px-1 text-center text-sm font-semibold transition"
           value={prediction.away_score}
           onChange={(e) => onChange(match.id, "away_score", e.target.value)}
         />

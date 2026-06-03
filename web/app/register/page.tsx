@@ -49,7 +49,7 @@ function RegisterPageContent() {
     <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl space-y-8">
         <section className="rr-frame rounded-[32px] p-6 md:p-8">
-          <AppHeader showWorkspaceLink={false} />
+          <AppHeader showWorkspaceLink={false} showCreateButton={false} showAuthLink={false} />
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
             <div>

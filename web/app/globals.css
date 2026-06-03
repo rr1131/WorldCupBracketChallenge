@@ -150,6 +150,17 @@ a {
   outline: none;
 }
 
+.rr-score-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.rr-score-input::-webkit-outer-spin-button,
+.rr-score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .rr-badge {
   border: 1px solid rgba(196, 52, 64, 0.16);
   background: rgba(253, 240, 240, 0.96);

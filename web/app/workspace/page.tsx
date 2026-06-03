@@ -100,7 +100,7 @@ export default function WorkspacePage() {
     <main className="rr-page min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rr-frame rounded-[32px] p-6">
-          <AppHeader />
+          <AppHeader showWorkspaceLink={false} showCreateButton={false} />
           <div className="mt-6">
             <LiveMatchRail />
           </div>
