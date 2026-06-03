@@ -78,6 +78,7 @@ type AppDataContextValue = {
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
+const MIN_REFRESH_INTERVAL_MS = 15000;
 
 function poolAccentSeed(value: string) {
   return value.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -174,6 +175,7 @@ function toFriendlyError(error: unknown, fallback: string) {
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const isRefreshingRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
   const [isHydrated, setIsHydrated] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [entries, setEntries] = useState<StoredEntry[]>([]);
@@ -224,11 +226,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return normalized;
   }, [syncPools]);
 
+  const markRefreshComplete = useCallback(() => {
+    lastRefreshAtRef.current = Date.now();
+  }, []);
+
   const bootstrapSession = useCallback(async () => {
     try {
       const session = await requestApi<ApiAuthSession>("/api/auth/me");
       setCurrentUser(normalizeUser(session.current_user));
       await Promise.all([refreshEntries(), refreshPools()]);
+      markRefreshComplete();
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) {
         console.error(error);
@@ -242,7 +249,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsHydrated(true);
     }
-  }, [refreshEntries, refreshPools]);
+  }, [markRefreshComplete, refreshEntries, refreshPools]);
 
   useEffect(() => {
     void bootstrapSession();
@@ -253,12 +260,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (
+      currentUser &&
+      Date.now() - lastRefreshAtRef.current < MIN_REFRESH_INTERVAL_MS
+    ) {
+      return;
+    }
+
     isRefreshingRef.current = true;
 
     try {
-      const session = await requestApi<ApiAuthSession>("/api/auth/me");
-      setCurrentUser(normalizeUser(session.current_user));
-      await Promise.all([refreshEntries(), refreshPools()]);
+      if (!currentUser) {
+        await bootstrapSession();
+      } else {
+        await Promise.all([refreshEntries(), refreshPools()]);
+        markRefreshComplete();
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         await bootstrapSession();
@@ -269,7 +286,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [bootstrapSession, refreshEntries, refreshPools]);
+  }, [bootstrapSession, currentUser, markRefreshComplete, refreshEntries, refreshPools]);
 
   useEffect(() => {
     if (!isHydrated || !currentUser) {
