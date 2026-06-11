@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
@@ -97,6 +98,7 @@ SCORABLE_KNOCKOUT_SLOT_IDS = {
     "M102",
     "M104",
 }
+logger = logging.getLogger("worldcup.live_sync")
 
 
 def _utcnow() -> datetime:
@@ -655,13 +657,13 @@ class EspnSyncService:
         settings = get_settings()
         tournament = _load_tournament()
         attempt_at = _utcnow()
-        state = _get_or_create_sync_state(session)
-        previous_hash = state.truth_hash
-        cached_status_by_fixture = _cached_status_lookup(state)
-        fixtures = sorted(_fixture_metadata(tournament), key=_fixture_sort_key)
-        selected_dates = _select_active_dates(fixtures, cached_status_by_fixture, attempt_at)
 
         try:
+            state = _get_or_create_sync_state(session)
+            previous_hash = state.truth_hash
+            cached_status_by_fixture = _cached_status_lookup(state)
+            fixtures = sorted(_fixture_metadata(tournament), key=_fixture_sort_key)
+            selected_dates = _select_active_dates(fixtures, cached_status_by_fixture, attempt_at)
             normalized_fixtures: list[LiveFixtureState] = []
             event_lookup: dict[str, dict[str, Any]] = {}
 
@@ -710,17 +712,21 @@ class EspnSyncService:
             }
         except Exception as error:  # noqa: BLE001
             session.rollback()
-            state = _get_or_create_sync_state(session)
-            state.provider_name = "espn_cached"
-            state.sync_status = "error"
-            state.last_attempt_at = attempt_at
-            state.last_error = str(error)
-            session.commit()
+            try:
+                state = _get_or_create_sync_state(session)
+                state.provider_name = "espn_cached"
+                state.sync_status = "error"
+                state.last_attempt_at = attempt_at
+                state.last_error = str(error)
+                session.commit()
+            except Exception:  # noqa: BLE001
+                session.rollback()
+                logger.exception("Failed to persist ESPN sync error state")
             return {
                 "provider": "espn_cached",
                 "sync_status": "error",
                 "changed": False,
-                "synced_at": _isoformat(state.last_success_at),
+                "synced_at": None,
                 "error": str(error),
             }
 
@@ -816,22 +822,31 @@ def load_live_scoreboard_snapshot() -> dict[str, Any]:
     tournament = _load_tournament()
     session = get_session_factory()()
     try:
-        state = session.get(TruthSyncState, SYNC_STATE_ID)
-        if state is None or not state.scoreboard_payload:
+        try:
+            state = session.get(TruthSyncState, SYNC_STATE_ID)
+            if state is None or not state.scoreboard_payload:
+                return _build_placeholder_scoreboard(
+                    tournament,
+                    provider="espn_cached",
+                    sync_status=state.sync_status if state is not None else "never_synced",
+                    synced_at=state.last_success_at if state is not None else None,
+                )
+
+            return {
+                "provider": state.provider_name,
+                "sync_status": state.sync_status,
+                "synced_at": _isoformat(state.last_success_at),
+                "stale": _stale(state.last_success_at),
+                "fixtures": list(state.scoreboard_payload.get("fixtures", [])),
+            }
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to load cached live scoreboard snapshot")
             return _build_placeholder_scoreboard(
                 tournament,
                 provider="espn_cached",
-                sync_status=state.sync_status if state is not None else "never_synced",
-                synced_at=state.last_success_at if state is not None else None,
+                sync_status="error",
+                synced_at=None,
             )
-
-        return {
-            "provider": state.provider_name,
-            "sync_status": state.sync_status,
-            "synced_at": _isoformat(state.last_success_at),
-            "stale": _stale(state.last_success_at),
-            "fixtures": list(state.scoreboard_payload.get("fixtures", [])),
-        }
     finally:
         session.close()
 
@@ -878,7 +893,10 @@ class EspnSyncPoller:
         """Poll ESPN at the configured interval until asked to stop."""
         interval_seconds = max(5, get_settings().espn_poll_interval_seconds)
         while not self._stop_event.is_set():
-            sync_truth_once_and_maybe_rescore()
+            try:
+                sync_truth_once_and_maybe_rescore()
+            except Exception:  # noqa: BLE001
+                logger.exception("ESPN sync poller cycle crashed")
             self._stop_event.wait(interval_seconds)
 
 

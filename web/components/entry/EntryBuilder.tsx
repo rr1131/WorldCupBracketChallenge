@@ -59,6 +59,18 @@ function isManualThirdPlaceTiebreakDetail(
   );
 }
 
+function parseJsonSafely<T>(value: string): T | null {
+  if (!value.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
 function toPredictionLookup(predictions: MatchPrediction[]) {
   const existing = Object.fromEntries(predictions.map((prediction) => [prediction.match_id, prediction]));
 
@@ -401,14 +413,9 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
     });
 
     if (!response.ok) {
-      let errorBody: unknown = null;
-      let fallbackErrorText = "";
-
-      try {
-        errorBody = await response.json();
-      } catch {
-        fallbackErrorText = await response.text();
-      }
+      const rawBody = await response.text();
+      const isJson = response.headers.get("content-type")?.includes("application/json");
+      const errorBody = isJson ? parseJsonSafely<{ detail?: unknown }>(rawBody) : null;
 
       const detail =
         errorBody &&
@@ -430,7 +437,7 @@ export default function EntryBuilder({ entry, onDelete, onSave }: EntryBuilderPr
       const message =
         typeof detail === "string"
           ? detail
-          : fallbackErrorText || "Request failed.";
+          : rawBody.trim() || "Request failed.";
       throw new Error(message);
     }
 

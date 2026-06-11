@@ -530,6 +530,9 @@ def serialize_auth_session(user: User) -> dict[str, Any]:
 
 def create_entry_for_user(session: Session, user: User, entry_name: str | None = None) -> dict[str, Any]:
     """Create a new draft entry for the current user."""
+    if entries_locked():
+        raise ServiceError("Entries are locked and can no longer be created.", status_code=403)
+
     existing_count = session.scalar(
         select(func.count()).select_from(Entry).where(Entry.owner_id == user.id)
     )

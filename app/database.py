@@ -27,7 +27,19 @@ def get_engine() -> Engine:
     """Create and cache the SQLAlchemy engine."""
     settings = get_settings()
     connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-    return create_engine(settings.database_url, future=True, connect_args=connect_args)
+    engine_kwargs = {
+        "future": True,
+        "connect_args": connect_args,
+    }
+    if not settings.database_url.startswith("sqlite"):
+        engine_kwargs.update(
+            {
+                "pool_pre_ping": True,
+                "pool_recycle": 300,
+                "pool_use_lifo": True,
+            }
+        )
+    return create_engine(settings.database_url, **engine_kwargs)
 
 
 @lru_cache(maxsize=1)

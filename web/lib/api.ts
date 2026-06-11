@@ -30,6 +30,18 @@ export class ApiError extends Error {
   }
 }
 
+function parseJsonSafely<T>(value: string): T | null {
+  if (!value.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestApi<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(buildApiUrl(path), {
     credentials: "include",
@@ -44,16 +56,17 @@ export async function requestApi<T>(path: string, init?: RequestInit): Promise<T
     return undefined as T;
   }
 
+  const rawBody = await response.text();
   const isJson = response.headers.get("content-type")?.includes("application/json");
-  const payload = isJson ? await response.json() : null;
+  const payload = isJson ? parseJsonSafely<{ detail?: string }>(rawBody) : null;
 
   if (!response.ok) {
     const detail =
       payload && typeof payload === "object" && "detail" in payload && typeof payload.detail === "string"
         ? payload.detail
-        : `Request failed with status ${response.status}.`;
+        : rawBody.trim() || `Request failed with status ${response.status}.`;
     throw new ApiError(detail, response.status);
   }
 
-  return payload as T;
+  return (payload as T) ?? (undefined as T);
 }
